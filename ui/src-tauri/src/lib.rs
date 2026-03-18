@@ -1,7 +1,7 @@
-use tauri::Manager;
-use std::sync::Mutex;
 use std::io::{BufRead, BufReader};
-use std::process::{Command, Child, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+use tauri::Manager;
 
 struct BackendState {
     process: Option<Child>,
@@ -17,6 +17,7 @@ fn get_backend_port(state: tauri::State<'_, Mutex<BackendState>>) -> Result<u16,
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -33,7 +34,8 @@ pub fn run() {
             std::thread::spawn(move || {
                 // Try to find and launch the backend
                 // First try the sidecar binary (production)
-                let backend_path = handle.path()
+                let backend_path = handle
+                    .path()
                     .resource_dir()
                     .ok()
                     .map(|d| d.join("fyf-backend"));
@@ -46,9 +48,14 @@ pub fn run() {
                         let mut c = Command::new("python3");
                         c.arg("-m").arg("backend.server");
                         c.current_dir(
-                            handle.path().resource_dir().unwrap_or_default()
-                                .parent().unwrap_or_else(|| std::path::Path::new("."))
-                                .parent().unwrap_or_else(|| std::path::Path::new("."))
+                            handle
+                                .path()
+                                .resource_dir()
+                                .unwrap_or_default()
+                                .parent()
+                                .unwrap_or_else(|| std::path::Path::new("."))
+                                .parent()
+                                .unwrap_or_else(|| std::path::Path::new(".")),
                         );
                         c
                     }

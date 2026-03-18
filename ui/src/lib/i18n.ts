@@ -69,6 +69,10 @@ const translations = {
     "export.error": "Export Failed",
     "export.back": "Back",
     "export.retry": "Retry",
+
+    // Update
+    "update.available": "A new version is available:",
+    "update.install": "Update Now",
   },
   tr: {
     // Landing
@@ -137,6 +141,10 @@ const translations = {
     "export.error": "Disa Aktarma Hatasi",
     "export.back": "Geri",
     "export.retry": "Tekrar Dene",
+
+    // Update
+    "update.available": "Yeni versiyon mevcut:",
+    "update.install": "Güncelle",
   },
 } as const;
 
