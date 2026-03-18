@@ -41,12 +41,12 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
   <tr>
     <td><strong>macOS (Apple Silicon)</strong></td>
     <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_aarch64.dmg">📦 .dmg (ARM)</a></td>
-    <td>M1, M2, M3, M4 Mac'ler</td>
+    <td>M1, M2, M3, M4 Macs</td>
   </tr>
   <tr>
     <td><strong>macOS (Intel)</strong></td>
     <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_x64.dmg">📦 .dmg (x64)</a></td>
-    <td>2020 öncesi Intel Mac'ler</td>
+    <td>Pre-2020 Intel Macs</td>
   </tr>
   <tr>
     <td><strong>Windows</strong></td>
@@ -61,11 +61,11 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
   <tr>
     <td><strong>Linux (Universal)</strong></td>
     <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_amd64.AppImage">📦 .AppImage</a></td>
-    <td>Tüm Linux dağıtımları</td>
+    <td>All Linux distros</td>
   </tr>
 </table>
 
-> **Auto-update:** App otomatik olarak yeni sürümleri kontrol eder. Güncelleme olduğunda uygulama içinde bildirim alırsınız.
+> **Auto-update:** The app automatically checks for new versions. You'll get an in-app notification when an update is available.
 
 ## Screenshot
 
