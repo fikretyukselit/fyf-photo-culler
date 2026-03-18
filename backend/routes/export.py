@@ -28,7 +28,7 @@ def export_preview():
     return counts
 
 
-@router.post("/api/export")
+@router.get("/api/export")
 def export_photos():
     def _export_stream():
         destinations = _effective_destinations()

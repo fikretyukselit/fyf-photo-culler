@@ -13,3 +13,8 @@ ui/src-tauri/target/
 ui/build/
 *.egg-info/
 *.pdf
+build/
+*.spec
+ui/src-tauri/binaries/
+ui/src-tauri/icons/android/
+ui/src-tauri/icons/ios/
