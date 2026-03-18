@@ -73,10 +73,15 @@ export function Export() {
 
   async function handleOpenFolder() {
     try {
-      const { openPath } = await import("@tauri-apps/plugin-opener");
-      await openPath(outputDir);
+      const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
+      await revealItemInDir(outputDir || "./output");
     } catch {
-      // fallback: ignore
+      try {
+        const { openPath } = await import("@tauri-apps/plugin-opener");
+        await openPath(outputDir || "./output");
+      } catch {
+        // ignore
+      }
     }
   }
 

@@ -63,7 +63,7 @@ const translations = {
     "export.exporting": "Exporting...",
     "export.complete": "Export Complete",
     "export.completeDesc": "All photos have been organized and exported.",
-    "export.openFolder": "Open in Finder",
+    "export.openFolder": "Open Folder",
     "export.backToReview": "Back to Review",
     "export.start": "Export Photos",
     "export.error": "Export Failed",
@@ -135,7 +135,7 @@ const translations = {
     "export.complete": "Disa Aktarma Tamamlandi!",
     "export.completeDesc":
       "Tum fotograflar duzenlendi ve disa aktarildi.",
-    "export.openFolder": "Klasoru Ac",
+    "export.openFolder": "Klasörü Aç",
     "export.backToReview": "Incelemeye Don",
     "export.start": "Disa Aktar",
     "export.error": "Disa Aktarma Hatasi",
