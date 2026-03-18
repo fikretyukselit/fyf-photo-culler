@@ -66,7 +66,7 @@ jobs:
           cp dist/fyf-backend* ui/src-tauri/binaries/${{ matrix.sidecar_name }}
 
       - name: Setup Rust
-        uses: dtolnay/rust-action/setup@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
