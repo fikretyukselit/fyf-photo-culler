@@ -12,6 +12,8 @@ const translations = {
     "landing.mergeMode": "Merge all into single output",
     "landing.startCulling": "Start Culling",
     "landing.starting": "Starting...",
+    "landing.onlyJpgSupported": "Warning: Only JPG/JPEG photos are supported. Other files in the folder will be ignored.",
+    "landing.noJpgFound": "No JPG photos found in the selected folders.",
 
     // Processing
     "processing.title": "Analyzing Photos...",
@@ -83,6 +85,8 @@ const translations = {
     "landing.mergeMode": "Tumunu tek output'a birlestir",
     "landing.startCulling": "Elemeye Basla",
     "landing.starting": "Baslatiliyor...",
+    "landing.onlyJpgSupported": "Uyarı: Sadece JPG/JPEG fotoğrafları desteklenmektedir. Diğer dosyalar göz ardı edilecektir.",
+    "landing.noJpgFound": "Seçilen klasörlerde hiç JPG fotoğraf bulunamadı.",
 
     // Processing
     "processing.title": "Fotograflar Analiz Ediliyor...",

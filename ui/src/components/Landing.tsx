@@ -55,6 +55,22 @@ export function Landing() {
     setStarting(true);
     setError(null);
     try {
+      const check = await api.checkFolders(inputFolders);
+      
+      if (check.jpg_count === 0) {
+        setError(t("landing.noJpgFound"));
+        setStarting(false);
+        return;
+      }
+      
+      if (check.other_count > 0) {
+        const proceed = window.confirm(t("landing.onlyJpgSupported"));
+        if (!proceed) {
+          setStarting(false);
+          return;
+        }
+      }
+
       await api.analyze(inputFolders, mergeMode, outputDir);
       setScreen("processing");
     } catch (e) {

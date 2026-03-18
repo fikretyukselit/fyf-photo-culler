@@ -27,6 +27,13 @@ class ApiClient {
     });
   }
 
+  async checkFolders(folders: string[]) {
+    return this.request<{ jpg_count: number; other_count: number }>("/api/check_folders", {
+      method: "POST",
+      body: JSON.stringify({ folders }),
+    });
+  }
+
   progressStream(): EventSource {
     return new EventSource(`${this.baseUrl}/api/progress`);
   }
@@ -50,6 +57,10 @@ class ApiClient {
 
   thumbnailUrl(photoId: string): string {
     return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/thumbnail`;
+  }
+
+  fullUrl(photoId: string): string {
+    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/full`;
   }
 
   async getPhoto(photoId: string) {
