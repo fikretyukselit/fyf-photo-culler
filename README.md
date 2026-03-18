@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="#download">Download</a> &middot;
   <a href="#features">Features</a> &middot;
   <a href="#screenshot">Screenshot</a> &middot;
   <a href="#getting-started">Getting Started</a> &middot;
@@ -18,14 +19,53 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest"><img src="https://img.shields.io/github/v/release/fikretyukselit/fyf-photo-culler?color=orange&label=latest" alt="Latest Release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue" alt="Platform" />
   <img src="https://img.shields.io/badge/language-TR%20%7C%20EN-green" alt="Language" />
   <img src="https://img.shields.io/github/license/fikretyukselit/fyf-photo-culler" alt="License" />
+  <a href="https://github.com/fikretyukselit/fyf-photo-culler/releases"><img src="https://img.shields.io/github/downloads/fikretyukselit/fyf-photo-culler/total?color=brightgreen" alt="Downloads" /></a>
 </p>
 
 ---
 
 An open-source desktop application built by volunteers of **[Fikret Yuksel Foundation](https://fikretyukselfoundation.org)**. Designed to help FRC (FIRST Robotics Competition) media teams quickly sort through hundreds of competition photos — keeping the best shots, detecting duplicates, and organizing everything automatically.
+
+## Download
+
+<table>
+  <tr>
+    <th>Platform</th>
+    <th>File</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><strong>macOS (Apple Silicon)</strong></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_aarch64.dmg">📦 .dmg (ARM)</a></td>
+    <td>M1, M2, M3, M4 Mac'ler</td>
+  </tr>
+  <tr>
+    <td><strong>macOS (Intel)</strong></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_x64.dmg">📦 .dmg (x64)</a></td>
+    <td>2020 öncesi Intel Mac'ler</td>
+  </tr>
+  <tr>
+    <td><strong>Windows</strong></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_x64-setup.exe">📦 .exe Installer</a></td>
+    <td>Windows 10/11 (64-bit)</td>
+  </tr>
+  <tr>
+    <td><strong>Linux (Debian/Ubuntu)</strong></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_amd64.deb">📦 .deb</a></td>
+    <td>Ubuntu, Debian, Pop!_OS</td>
+  </tr>
+  <tr>
+    <td><strong>Linux (Universal)</strong></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_amd64.AppImage">📦 .AppImage</a></td>
+    <td>Tüm Linux dağıtımları</td>
+  </tr>
+</table>
+
+> **Auto-update:** App otomatik olarak yeni sürümleri kontrol eder. Güncelleme olduğunda uygulama içinde bildirim alırsınız.
 
 ## Screenshot
 
