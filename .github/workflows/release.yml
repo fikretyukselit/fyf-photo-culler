@@ -83,7 +83,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf rpm
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -107,6 +107,7 @@ jobs:
             ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi.sig
             ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
             ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
             ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.sig
 
@@ -195,6 +196,7 @@ jobs:
             artifacts/**/*.msi
             artifacts/**/*.msi.sig
             artifacts/**/*.deb
+            artifacts/**/*.rpm
             artifacts/**/*.AppImage
             artifacts/**/*.AppImage.sig
             latest.json
