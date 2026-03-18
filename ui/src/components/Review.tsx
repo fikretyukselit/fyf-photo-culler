@@ -200,6 +200,12 @@ function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick }: PhotoCar
 function PhotoDetail() {
   const { detailPhoto, setDetailPhoto } = usePhotosStore();
   const { t } = useLocale();
+  const [isFullscreen, setFullscreen] = useState(false);
+
+  // reset fullscreen when selecting a new photo
+  useEffect(() => {
+    setFullscreen(false);
+  }, [detailPhoto]);
 
   if (!detailPhoto) return null;
 
@@ -216,10 +222,29 @@ function PhotoDetail() {
   ];
 
   async function handleOverride(dest: string) {
-    await api.setOverride(photo.id, dest);
-    const summaryRes = await api.getSummary();
-    usePhotosStore.getState().setSummary(summaryRes);
-    usePhotosStore.getState().updatePhotoDestination(photo.id, dest);
+    const store = usePhotosStore.getState();
+    
+    // Find next photo before updating destination (so it's still in the current category)
+    let currentPhotos = store.photos.filter((p) => p.destination === store.activeCategory);
+    if (store.sortBy === "quality_score") {
+      currentPhotos = currentPhotos.sort((a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0));
+    } else {
+      currentPhotos = currentPhotos.sort((a, b) => a.filename.localeCompare(b.filename));
+    }
+    const currentIndex = currentPhotos.findIndex(p => p.id === photo.id);
+    const nextPhoto = currentPhotos[currentIndex + 1] || currentPhotos[currentIndex - 1] || null;
+
+    try {
+      await api.setOverride(photo.id, dest);
+      const summaryRes = await api.getSummary();
+      store.setSummary(summaryRes);
+      store.updatePhotoDestination(photo.id, dest);
+      
+      // Always auto-advance to allow rapid curation
+      setDetailPhoto(nextPhoto);
+    } catch (e) {
+      console.error("Failed to override:", e);
+    }
   }
 
   async function handleReset() {
@@ -238,26 +263,39 @@ function PhotoDetail() {
   }
 
   return (
-    <div className="glass flex h-full w-[400px] shrink-0 flex-col overflow-y-auto border-l border-border">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold">{t("review.photoDetails")}</h3>
-        <button
-          onClick={() => setDetailPhoto(null)}
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
+    <>
+      <div className="glass flex h-full w-[400px] shrink-0 flex-col overflow-y-auto border-l border-border relative z-10">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold">{t("review.photoDetails")}</h3>
+          <button
+            onClick={() => setDetailPhoto(null)}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
 
-      {/* Preview */}
-      <div className="aspect-[4/3] w-full shrink-0 overflow-hidden bg-foreground/5">
-        <img
-          src={api.thumbnailUrl(photo.id)}
-          alt={photo.filename}
-          className="h-full w-full object-contain"
-        />
-      </div>
+        {/* Preview */}
+        <div 
+          className="relative aspect-[4/3] w-full shrink-0 cursor-zoom-in overflow-hidden bg-foreground/5 group"
+          onClick={() => setFullscreen(true)}
+        >
+          <img
+            src={api.thumbnailUrl(photo.id)}
+            alt={photo.filename}
+            className="absolute inset-0 h-full w-full object-contain blur-md opacity-50 transition-transform duration-300 group-hover:scale-105"
+          />
+          <img
+            key={photo.id}
+            src={api.fullUrl(photo.id)}
+            alt={photo.filename}
+            className="absolute inset-0 h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10 flex items-center justify-center opacity-0 group-hover:opacity-100">
+             <span className="text-white font-medium drop-shadow-md">Tıkla ve Büyüt</span>
+          </div>
+        </div>
 
       <div className="flex-1 space-y-4 p-4">
         {/* File info */}
@@ -362,6 +400,29 @@ function PhotoDetail() {
         </div>
       </div>
     </div>
+      
+    {/* Fullscreen Overlay */}
+      {isFullscreen && (
+        <div
+          className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/95 p-8 backdrop-blur-sm"
+          onClick={() => setFullscreen(false)}
+        >
+          {/* Close button top right */}
+          <button
+            onClick={() => setFullscreen(false)}
+            className="absolute right-6 top-6 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
+          >
+            <X className="size-6" />
+          </button>
+          
+          <img
+            src={api.fullUrl(photo.id)}
+            alt={photo.filename}
+            className="h-full w-full object-contain drop-shadow-2xl animate-in zoom-in duration-200"
+          />
+        </div>
+      )}
+    </>
   );
 }
 
