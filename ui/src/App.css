@@ -133,9 +133,12 @@
   html.dark {
     color-scheme: dark;
     }
+  html, body {
+    overflow: hidden;
+    border-radius: 10px;
+    }
   body {
     @apply bg-background text-foreground;
-    overflow: hidden;
     }
 }
 

@@ -17,7 +17,7 @@ function App() {
   }, [backendPort]);
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background rounded-[10px]">
       <Titlebar />
       <main className="flex-1 overflow-hidden">
         {screen === "landing" && <Landing />}
