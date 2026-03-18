@@ -1,0 +1,200 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            sidecar_name: fyf-backend-aarch64-apple-darwin
+            sidecar_sep: ":"
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            sidecar_name: fyf-backend-x86_64-apple-darwin
+            sidecar_sep: ":"
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            sidecar_name: fyf-backend-x86_64-pc-windows-msvc.exe
+            sidecar_sep: ";"
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            sidecar_name: fyf-backend-x86_64-unknown-linux-gnu
+            sidecar_sep: ":"
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install pyinstaller
+          pip install fastapi "uvicorn[standard]" opencv-python-headless Pillow imagehash scikit-image tqdm numpy
+
+      - name: Build Python sidecar
+        shell: bash
+        run: |
+          pyinstaller --onefile --name fyf-backend backend/server.py \
+            --hidden-import culling \
+            --add-data "culling${{ matrix.sidecar_sep }}culling" \
+            --distpath dist/
+          mkdir -p ui/src-tauri/binaries
+          cp dist/fyf-backend* ui/src-tauri/binaries/${{ matrix.sidecar_name }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action/setup@v1
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: ui
+        run: bun install
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: ui
+          tauriScript: bun run tauri
+          args: --target ${{ matrix.target }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.target }}
+          path: |
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz.sig
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe.sig
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi.sig
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            ui/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.sig
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            TAG="${{ github.ref_name }}"
+            echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate latest.json for auto-updater
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          BASE_URL="https://github.com/fikretyukselit/fyf-photo-culler/releases/download/${TAG}"
+
+          # Find signature files
+          MAC_ARM_SIG=$(find artifacts -name "*.app.tar.gz.sig" -path "*aarch64*" -exec cat {} \; 2>/dev/null || echo "")
+          MAC_X64_SIG=$(find artifacts -name "*.app.tar.gz.sig" -path "*x86_64-apple*" -exec cat {} \; 2>/dev/null || echo "")
+          WIN_NSIS_SIG=$(find artifacts -name "*-setup.exe.sig" -exec cat {} \; 2>/dev/null || echo "")
+          WIN_MSI_SIG=$(find artifacts -name "*.msi.sig" -exec cat {} \; 2>/dev/null || echo "")
+          LINUX_SIG=$(find artifacts -name "*.AppImage.sig" -exec cat {} \; 2>/dev/null || echo "")
+
+          # Find artifact filenames
+          MAC_ARM_TAR=$(find artifacts -name "*.app.tar.gz" ! -name "*.sig" -path "*aarch64*" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*.app.tar.gz' ! -name '*.sig' -path '*aarch64*' 2>/dev/null | head -1)" 2>/dev/null || echo "")
+          MAC_X64_TAR=$(find artifacts -name "*.app.tar.gz" ! -name "*.sig" -path "*x86_64-apple*" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*.app.tar.gz' ! -name '*.sig' -path '*x86_64-apple*' 2>/dev/null | head -1)" 2>/dev/null || echo "")
+          WIN_NSIS=$(find artifacts -name "*-setup.exe" ! -name "*.sig" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*-setup.exe' ! -name '*.sig' 2>/dev/null | head -1)" 2>/dev/null || echo "")
+          LINUX_APPIMAGE=$(find artifacts -name "*.AppImage" ! -name "*.sig" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*.AppImage' ! -name '*.sig' 2>/dev/null | head -1)" 2>/dev/null || echo "")
+
+          cat > latest.json << ENDJSON
+          {
+            "version": "${VERSION}",
+            "notes": "FYF Photo Culler ${TAG}",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-aarch64": {
+                "url": "${BASE_URL}/${MAC_ARM_TAR}",
+                "signature": "${MAC_ARM_SIG}"
+              },
+              "darwin-x86_64": {
+                "url": "${BASE_URL}/${MAC_X64_TAR}",
+                "signature": "${MAC_X64_SIG}"
+              },
+              "windows-x86_64": {
+                "url": "${BASE_URL}/${WIN_NSIS}",
+                "signature": "${WIN_NSIS_SIG}"
+              },
+              "linux-x86_64": {
+                "url": "${BASE_URL}/${LINUX_APPIMAGE}",
+                "signature": "${LINUX_SIG}"
+              }
+            }
+          }
+          ENDJSON
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "FYF Photo Culler ${{ steps.version.outputs.tag }}"
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.app.tar.gz
+            artifacts/**/*.app.tar.gz.sig
+            artifacts/**/*.exe
+            artifacts/**/*.exe.sig
+            artifacts/**/*.msi
+            artifacts/**/*.msi.sig
+            artifacts/**/*.deb
+            artifacts/**/*.AppImage
+            artifacts/**/*.AppImage.sig
+            latest.json
