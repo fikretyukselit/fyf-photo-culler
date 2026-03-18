@@ -1,0 +1,18 @@
+[project]
+name = "fyf-photo-culler"
+version = "1.0.0"
+description = "FYF Photo Culler — Automatically cull FRC competition photos"
+requires-python = ">=3.9"
+dependencies = [
+    "opencv-python-headless",
+    "Pillow",
+    "imagehash",
+    "scikit-image",
+    "tqdm",
+    "numpy",
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[project.scripts]
+fyf-cull = "cull:main"

@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.cache/
+output/
+.DS_Store
+.thumbnails/
+dist/
+*.dmg
+*.exe
+ui/node_modules/
+ui/src-tauri/target/
+ui/build/
+*.egg-info/
+*.pdf
