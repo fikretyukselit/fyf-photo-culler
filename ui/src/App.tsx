@@ -31,12 +31,14 @@ function UpdateBanner() {
       const u = await check();
       if (!u) return;
       let downloaded = 0;
+      let contentLength = 0;
       await u.downloadAndInstall((e) => {
-        if (e.event === "Started" && e.data.contentLength) {
+        if (e.event === "Started") {
+          contentLength = (e.data as { contentLength?: number }).contentLength || 0;
           downloaded = 0;
         } else if (e.event === "Progress") {
-          downloaded += e.data.chunkLength;
-          setProgress(Math.round((downloaded / (e.data.contentLength || 1)) * 100));
+          downloaded += (e.data as { chunkLength: number }).chunkLength;
+          if (contentLength > 0) setProgress(Math.round((downloaded / contentLength) * 100));
         }
       });
       await relaunch();
