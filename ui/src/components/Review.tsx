@@ -288,7 +288,7 @@ function PhotoDetail() {
           />
           <img
             key={photo.id}
-            src={api.fullUrl(photo.id)}
+            src={api.thumbnailUrl(photo.id)}
             alt={photo.filename}
             className="absolute inset-0 h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
           />
