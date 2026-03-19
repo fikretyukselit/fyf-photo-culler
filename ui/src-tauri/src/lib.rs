@@ -1,10 +1,10 @@
-use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::Manager;
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandChild;
 
 struct BackendState {
-    process: Option<Child>,
+    process: Option<CommandChild>,
     port: Option<u16>,
 }
 
@@ -26,72 +26,74 @@ pub fn run() {
             port: None,
         }))
         .setup(|app| {
-            // Try to spawn the Python backend sidecar
-            // In development, the Python backend should be started manually
-            // In production, it's bundled as a sidecar binary
             let handle = app.handle().clone();
 
-            std::thread::spawn(move || {
-                // Try to find and launch the backend
-                // First try the sidecar binary (production)
-                let backend_path = handle
-                    .path()
-                    .resource_dir()
-                    .ok()
-                    .map(|d| d.join("fyf-backend"));
+            // Try Tauri sidecar first (production), fall back to python3 (development)
+            let sidecar_result = app.shell().sidecar("fyf-backend");
 
-                let mut cmd = if let Some(ref path) = backend_path {
-                    if path.exists() {
-                        Command::new(path)
-                    } else {
-                        // Development fallback: run Python directly
-                        let mut c = Command::new("python3");
-                        c.arg("-m").arg("backend.server");
-                        c.current_dir(
-                            handle
-                                .path()
-                                .resource_dir()
-                                .unwrap_or_default()
-                                .parent()
-                                .unwrap_or_else(|| std::path::Path::new("."))
-                                .parent()
-                                .unwrap_or_else(|| std::path::Path::new(".")),
-                        );
-                        c
-                    }
-                } else {
-                    let mut c = Command::new("python3");
-                    c.arg("-m").arg("backend.server");
-                    c
-                };
+            match sidecar_result {
+                Ok(sidecar_cmd) => {
+                    let (mut rx, child) = sidecar_cmd
+                        .spawn()
+                        .expect("failed to spawn sidecar");
 
-                cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-
-                match cmd.spawn() {
-                    Ok(mut child) => {
-                        if let Some(stdout) = child.stdout.take() {
-                            let reader = BufReader::new(stdout);
-                            for line in reader.lines() {
-                                if let Ok(line) = line {
-                                    if line.starts_with("BACKEND_PORT=") {
-                                        if let Ok(port) = line[13..].trim().parse::<u16>() {
-                                            let state = handle.state::<Mutex<BackendState>>();
-                                            if let Ok(mut state) = state.lock() {
-                                                state.port = Some(port);
-                                                state.process = Some(child);
-                                            }
-                                            break;
-                                        }
+                    // Read stdout to find the port, then store child
+                    std::thread::spawn(move || {
+                        use tauri_plugin_shell::process::CommandEvent;
+                        while let Some(event) = rx.blocking_recv() {
+                            if let CommandEvent::Stdout(line) = event {
+                                let line = String::from_utf8_lossy(&line);
+                                if line.starts_with("BACKEND_PORT=") {
+                                    if let Ok(port) = line[13..].trim().parse::<u16>() {
+                                        let bs = handle.state::<Mutex<BackendState>>();
+                                        let mut guard = bs.lock().unwrap();
+                                        guard.port = Some(port);
+                                        guard.process = Some(child);
+                                        return;
                                     }
                                 }
                             }
                         }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to start backend: {}", e);
-                    }
+                    });
                 }
-            });
+                Err(_) => {
+                    // Development fallback: run Python directly
+                    eprintln!("Sidecar not found, falling back to python3 -m backend.server");
+                    std::thread::spawn(move || {
+                        use std::io::{BufRead, BufReader};
+                        use std::process::{Command, Stdio};
+
+                        let mut cmd = Command::new("python3");
+                        cmd.arg("-m").arg("backend.server");
+                        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+                        match cmd.spawn() {
+                            Ok(mut child) => {
+                                if let Some(stdout) = child.stdout.take() {
+                                    let reader = BufReader::new(stdout);
+                                    for line in reader.lines() {
+                                        if let Ok(line) = line {
+                                            if line.starts_with("BACKEND_PORT=") {
+                                                if let Ok(port) = line[13..].trim().parse::<u16>() {
+                                                    let bs = handle.state::<Mutex<BackendState>>();
+                                                    let mut guard = bs.lock().unwrap();
+                                                    guard.port = Some(port);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                // Keep child alive so backend doesn't die
+                                std::mem::forget(child);
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to start backend: {}", e);
+                            }
+                        }
+                    });
+                }
+            }
 
             Ok(())
         })
@@ -102,8 +104,8 @@ pub fn run() {
                     Ok(g) => g,
                     Err(_) => return,
                 };
-                if let Some(mut process) = guard.process.take() {
-                    let _ = process.kill();
+                if let Some(child) = guard.process.take() {
+                    let _ = child.kill();
                 }
             }
         })
