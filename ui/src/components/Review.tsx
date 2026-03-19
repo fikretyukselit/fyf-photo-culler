@@ -231,8 +231,14 @@ function PhotoDetail() {
     } else {
       currentPhotos = currentPhotos.sort((a, b) => a.filename.localeCompare(b.filename));
     }
-    const currentIndex = currentPhotos.findIndex(p => p.id === photo.id);
-    const nextPhoto = currentPhotos[currentIndex + 1] || currentPhotos[currentIndex - 1] || null;
+    const currentIndex = currentPhotos.findIndex((p) => p.id === photo.id);
+    let nextPhoto = null as Photo | null;
+    if (currentIndex !== -1) {
+      nextPhoto =
+        currentPhotos[currentIndex + 1] ||
+        currentPhotos[currentIndex - 1] ||
+        null;
+    }
 
     try {
       await api.setOverride(photo.id, dest);
@@ -240,7 +246,7 @@ function PhotoDetail() {
       store.setSummary(summaryRes);
       store.updatePhotoDestination(photo.id, dest);
       
-      // Always auto-advance to allow rapid curation
+      // Always auto-advance to allow rapid curation (if a valid next photo exists)
       setDetailPhoto(nextPhoto);
     } catch (e) {
       console.error("Failed to override:", e);
