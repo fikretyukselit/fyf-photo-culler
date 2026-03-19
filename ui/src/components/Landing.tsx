@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getVersion } from "@tauri-apps/api/app";
 import { FolderOpen, X, Play, FolderOutput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,11 @@ export function Landing() {
   const { t } = useLocale();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState("");
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+  }, []);
 
   async function handleSelectFolders() {
     const selected = await open({
@@ -106,6 +112,11 @@ export function Landing() {
           <p className="text-sm text-muted-foreground">
             {t("app.subtitle")}
           </p>
+          {appVersion && (
+            <span className="mt-1 text-[11px] text-muted-foreground/50">
+              v{appVersion}
+            </span>
+          )}
         </div>
 
         {/* Select folders */}
