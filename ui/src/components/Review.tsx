@@ -412,6 +412,14 @@ function PhotoDetail() {
         <div
           className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/95 p-8 backdrop-blur-sm"
           onClick={() => setFullscreen(false)}
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              event.preventDefault();
+              setFullscreen(false);
+            }
+          }}
         >
           {/* Close button top right */}
           <button
