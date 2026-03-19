@@ -74,8 +74,10 @@ const translations = {
     "export.retry": "Retry",
 
     // Update
-    "update.available": "A new version is available:",
+    "update.available": "A new version is available!",
     "update.install": "Update Now",
+    "update.later": "Later",
+    "update.downloading": "Downloading update...",
   },
   tr: {
     // Landing
@@ -149,8 +151,10 @@ const translations = {
     "export.retry": "Tekrar Dene",
 
     // Update
-    "update.available": "Yeni versiyon mevcut:",
+    "update.available": "Yeni versiyon mevcut!",
     "update.install": "Güncelle",
+    "update.later": "Sonra",
+    "update.downloading": "Güncelleme indiriliyor...",
   },
 } as const;
 
