@@ -415,6 +415,8 @@ function PhotoDetail() {
         >
           {/* Close button top right */}
           <button
+            type="button"
+            aria-label="Close fullscreen view"
             onClick={() => setFullscreen(false)}
             className="absolute right-6 top-6 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
           >
