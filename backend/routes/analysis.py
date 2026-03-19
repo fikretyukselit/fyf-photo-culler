@@ -16,10 +16,32 @@ from backend.state import state
 router = APIRouter()
 
 
-class AnalyzeRequest(BaseModel):
+class FolderList(BaseModel):
     folders: List[str]
+
+
+class AnalyzeRequest(FolderList):
     merge: bool = True
     output: str = "./output"
+
+
+JPEG_EXTENSIONS = {".jpg", ".jpeg"}
+
+
+@router.post("/api/check_folders")
+def check_folders(req: FolderList):
+    jpg_count = 0
+    other_count = 0
+    for folder in req.folders:
+        if not os.path.isdir(folder):
+            continue
+        for entry in os.listdir(folder):
+            ext = os.path.splitext(entry)[1].lower()
+            if ext in JPEG_EXTENSIONS:
+                jpg_count += 1
+            elif os.path.isfile(os.path.join(folder, entry)):
+                other_count += 1
+    return {"jpg_count": jpg_count, "other_count": other_count}
 
 
 def _update_progress(stage: str, current: int, total: int, current_file: str = ""):

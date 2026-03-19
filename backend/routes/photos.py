@@ -96,6 +96,22 @@ def photo_thumbnail(photo_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/photos/{photo_id}/full")
+def photo_full(photo_id: str):
+    try:
+        path = _decode_id(photo_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid photo ID")
+
+    if path not in state.analyses:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    return FileResponse(path, media_type="image/jpeg")
+
+
 @router.get("/api/photos/{photo_id}")
 def photo_detail(photo_id: str):
     try:
