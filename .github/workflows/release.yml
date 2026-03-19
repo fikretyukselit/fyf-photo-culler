@@ -94,6 +94,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rename macOS updater artifacts to include arch
+        if: contains(matrix.target, 'apple-darwin')
+        shell: bash
+        run: |
+          BUNDLE_DIR="ui/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          ARCH="${{ matrix.target == 'aarch64-apple-darwin' && 'aarch64' || 'x64' }}"
+          for f in "$BUNDLE_DIR"/*.app.tar.gz; do
+            [ -f "$f" ] && mv "$f" "$BUNDLE_DIR/FYF Photo Culler_${ARCH}.app.tar.gz"
+          done
+          for f in "$BUNDLE_DIR"/*.app.tar.gz.sig; do
+            [ -f "$f" ] && mv "$f" "$BUNDLE_DIR/FYF Photo Culler_${ARCH}.app.tar.gz.sig"
+          done
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -142,18 +155,25 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           BASE_URL="https://github.com/fikretyukselit/fyf-photo-culler/releases/download/${TAG}"
 
-          # Find signature files
-          MAC_ARM_SIG=$(find artifacts -name "*.app.tar.gz.sig" -path "*aarch64*" -exec cat {} \; 2>/dev/null || echo "")
-          MAC_X64_SIG=$(find artifacts -name "*.app.tar.gz.sig" -path "*x86_64-apple*" -exec cat {} \; 2>/dev/null || echo "")
-          WIN_NSIS_SIG=$(find artifacts -name "*-setup.exe.sig" -exec cat {} \; 2>/dev/null || echo "")
-          WIN_MSI_SIG=$(find artifacts -name "*.msi.sig" -exec cat {} \; 2>/dev/null || echo "")
-          LINUX_SIG=$(find artifacts -name "*.AppImage.sig" -exec cat {} \; 2>/dev/null || echo "")
+          echo "=== Artifacts ==="
+          find artifacts -type f | sort
+          echo "================="
 
-          # Find artifact filenames
-          MAC_ARM_TAR=$(find artifacts -name "*.app.tar.gz" ! -name "*.sig" -path "*aarch64*" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*.app.tar.gz' ! -name '*.sig' -path '*aarch64*' 2>/dev/null | head -1)" 2>/dev/null || echo "")
-          MAC_X64_TAR=$(find artifacts -name "*.app.tar.gz" ! -name "*.sig" -path "*x86_64-apple*" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*.app.tar.gz' ! -name '*.sig' -path '*x86_64-apple*' 2>/dev/null | head -1)" 2>/dev/null || echo "")
-          WIN_NSIS=$(find artifacts -name "*-setup.exe" ! -name "*.sig" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*-setup.exe' ! -name '*.sig' 2>/dev/null | head -1)" 2>/dev/null || echo "")
-          LINUX_APPIMAGE=$(find artifacts -name "*.AppImage" ! -name "*.sig" -printf "%f" 2>/dev/null || basename "$(find artifacts -name '*.AppImage' ! -name '*.sig' 2>/dev/null | head -1)" 2>/dev/null || echo "")
+          # Helper: find a single file by glob pattern and return its basename
+          find_asset() { basename "$(find artifacts -name "$1" ! -name "*.sig" | head -1)" 2>/dev/null || echo ""; }
+          read_sig() { cat "$(find artifacts -name "$1" | head -1)" 2>/dev/null || echo ""; }
+
+          # macOS updater tarballs (renamed with arch in build step)
+          MAC_ARM_TAR=$(find_asset "*_aarch64.app.tar.gz")
+          MAC_ARM_SIG=$(read_sig "*_aarch64.app.tar.gz.sig")
+          MAC_X64_TAR=$(find_asset "*_x64.app.tar.gz")
+          MAC_X64_SIG=$(read_sig "*_x64.app.tar.gz.sig")
+
+          # Windows & Linux
+          WIN_NSIS=$(find_asset "*-setup.exe")
+          WIN_NSIS_SIG=$(read_sig "*-setup.exe.sig")
+          LINUX_APPIMAGE=$(find_asset "*.AppImage")
+          LINUX_SIG=$(read_sig "*.AppImage.sig")
 
           cat > latest.json << ENDJSON
           {
@@ -180,6 +200,10 @@ jobs:
             }
           }
           ENDJSON
+
+          echo "=== latest.json ==="
+          cat latest.json
+          echo "==================="
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
