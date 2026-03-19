@@ -40,32 +40,32 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
   </tr>
   <tr>
     <td><strong>macOS (Apple Silicon)</strong></td>
-    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.2_aarch64.dmg">📦 .dmg (ARM)</a></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.3_aarch64.dmg">📦 .dmg (ARM)</a></td>
     <td>M1, M2, M3, M4 Macs</td>
   </tr>
   <tr>
     <td><strong>macOS (Intel)</strong></td>
-    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.2_x64.dmg">📦 .dmg (x64)</a></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.3_x64.dmg">📦 .dmg (x64)</a></td>
     <td>Pre-2020 Intel Macs</td>
   </tr>
   <tr>
     <td><strong>Windows</strong></td>
-    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.2_x64-setup.exe">📦 .exe Installer</a></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.3_x64-setup.exe">📦 .exe Installer</a></td>
     <td>Windows 10/11 (64-bit)</td>
   </tr>
   <tr>
     <td><strong>Linux (Debian/Ubuntu)</strong></td>
-    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.2_amd64.deb">📦 .deb</a></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.3_amd64.deb">📦 .deb</a></td>
     <td>Ubuntu, Debian, Pop!_OS</td>
   </tr>
   <tr>
     <td><strong>Linux (Fedora/RHEL)</strong></td>
-    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler-0.1.2-1.x86_64.rpm">📦 .rpm</a></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler-0.1.3-1.x86_64.rpm">📦 .rpm</a></td>
     <td>Fedora, RHEL, openSUSE</td>
   </tr>
   <tr>
     <td><strong>Linux (Universal)</strong></td>
-    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.2_amd64.AppImage">📦 .AppImage</a></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.3_amd64.AppImage">📦 .AppImage</a></td>
     <td>All Linux distros</td>
   </tr>
 </table>
