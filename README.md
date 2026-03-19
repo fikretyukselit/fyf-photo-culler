@@ -59,6 +59,11 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
     <td>Ubuntu, Debian, Pop!_OS</td>
   </tr>
   <tr>
+    <td><strong>Linux (Fedora/RHEL)</strong></td>
+    <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler-0.1.0-1.x86_64.rpm">📦 .rpm</a></td>
+    <td>Fedora, RHEL, openSUSE</td>
+  </tr>
+  <tr>
     <td><strong>Linux (Universal)</strong></td>
     <td><a href="https://github.com/fikretyukselit/fyf-photo-culler/releases/latest/download/FYF.Photo.Culler_0.1.0_amd64.AppImage">📦 .AppImage</a></td>
     <td>All Linux distros</td>
