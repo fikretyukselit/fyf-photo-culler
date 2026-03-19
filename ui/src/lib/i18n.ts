@@ -47,6 +47,7 @@ const translations = {
     "review.resetOriginal": "Reset to Original",
     "review.photoDetails": "Photo Details",
     "review.photosTotal": "photos total",
+    "review.zoomHint": "Click to zoom",
 
     // Detail
     "detail.quality": "Quality Score",
@@ -120,6 +121,7 @@ const translations = {
     "review.resetOriginal": "Orijinale Sifirla",
     "review.photoDetails": "Fotograf Detaylari",
     "review.photosTotal": "toplam fotograf",
+    "review.zoomHint": "Yakınlaştırmak için tıkla",
 
     // Detail
     "detail.quality": "Kalite Puani",
