@@ -19,7 +19,7 @@ W_SHARPNESS_NO_EXIF = 0.53
 W_EXPOSURE_NO_EXIF = 0.33
 W_CONTRAST_NO_EXIF = 0.14
 
-BLUR_THRESHOLD = 100
+BLUR_THRESHOLD = 85
 BLUR_THRESHOLD_SHALLOW_DOF = 50  # Lower threshold for wide aperture (bokeh) shots
 SHALLOW_DOF_APERTURE = 4.0       # f/4.0 and below = shallow depth of field
 
@@ -30,24 +30,33 @@ BRIGHT_RATIO_THRESHOLD = 0.80
 
 
 def compute_sharpness(img: np.ndarray) -> float:
-    """Laplacian variance on center 50% crop.
-    Center crop avoids penalizing intentional bokeh in portrait/shallow DOF shots."""
+    """3x3 grid Laplacian variance, returning the average of the top-2 sharpest tiles.
+    This catches off-center subjects (rule-of-thirds) while requiring two distinct
+    sharp regions — robust against single-tile anomalies like scoreboards."""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
-    # Center 50% crop
-    y1, y2 = h // 4, 3 * h // 4
-    x1, x2 = w // 4, 3 * w // 4
-    center = gray[y1:y2, x1:x2]
-    return float(cv2.Laplacian(center, cv2.CV_64F).var())
+    tile_h, tile_w = h // 3, w // 3
+    variances = []
+    for row in range(3):
+        for col in range(3):
+            y1, y2 = row * tile_h, (row + 1) * tile_h if row < 2 else h
+            x1, x2 = col * tile_w, (col + 1) * tile_w if col < 2 else w
+            tile = gray[y1:y2, x1:x2]
+            variances.append(float(cv2.Laplacian(tile, cv2.CV_64F).var()))
+    variances.sort(reverse=True)
+    return (variances[0] + variances[1]) / 2.0
 
 
 def compute_exposure(img: np.ndarray) -> float:
-    """Score 0-100. Penalizes mostly dark or mostly bright images."""
+    """Score 0-100. Penalizes mostly dark or mostly bright images.
+    Dark pixel penalty is halved — FRC arenas have 40-60% dark background
+    (tribunes, floor) which is by design, not a quality issue."""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     total = gray.size
-    dark_ratio = np.sum(gray < DARK_PIXEL_THRESHOLD) / total
-    bright_ratio = np.sum(gray > BRIGHT_PIXEL_THRESHOLD) / total
-    mid_ratio = 1.0 - dark_ratio - bright_ratio
+    dark_ratio = float(np.sum(gray < DARK_PIXEL_THRESHOLD) / total)
+    bright_ratio = float(np.sum(gray > BRIGHT_PIXEL_THRESHOLD) / total)
+    effective_dark = dark_ratio * 0.5
+    mid_ratio = 1.0 - effective_dark - bright_ratio
     return float(np.clip(mid_ratio * 100, 0, 100))
 
 
