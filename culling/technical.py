@@ -35,6 +35,8 @@ def compute_sharpness(img: np.ndarray) -> float:
     sharp regions — robust against single-tile anomalies like scoreboards."""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
+    if h < 3 or w < 3:
+        return float(cv2.Laplacian(gray, cv2.CV_64F).var())
     tile_h, tile_w = h // 3, w // 3
     variances = []
     for row in range(3):
