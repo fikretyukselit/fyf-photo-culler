@@ -175,6 +175,28 @@ jobs:
           LINUX_APPIMAGE=$(find_asset "*.AppImage")
           LINUX_SIG=$(read_sig "*.AppImage.sig")
 
+          # Fail loud rather than publishing a latest.json with empty URLs/signatures,
+          # which would silently break auto-update for that platform.
+          MISSING=0
+          check_var() {
+            if [ -z "$2" ]; then
+              echo "::error::Missing updater artifact: $1 (glob matched nothing)"
+              MISSING=1
+            fi
+          }
+          check_var "macOS arm64 tarball" "$MAC_ARM_TAR"
+          check_var "macOS arm64 signature" "$MAC_ARM_SIG"
+          check_var "macOS x64 tarball" "$MAC_X64_TAR"
+          check_var "macOS x64 signature" "$MAC_X64_SIG"
+          check_var "Windows NSIS installer" "$WIN_NSIS"
+          check_var "Windows NSIS signature" "$WIN_NSIS_SIG"
+          check_var "Linux AppImage" "$LINUX_APPIMAGE"
+          check_var "Linux AppImage signature" "$LINUX_SIG"
+          if [ "$MISSING" -eq 1 ]; then
+            echo "::error::One or more required updater artifacts are missing. Aborting before publishing a broken latest.json."
+            exit 1
+          fi
+
           cat > latest.json << ENDJSON
           {
             "version": "${VERSION}",
