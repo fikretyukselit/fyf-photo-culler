@@ -973,6 +973,9 @@ function PhotoGrid() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const lastClickedIdx = useRef<number>(-1);
+  // Bumped on every fresh (page 1) load; in-flight responses from an older
+  // generation are dropped so a slow request can't overwrite a newer one.
+  const requestGen = useRef(0);
 
   const colWidth = DENSITY_COL_WIDTH[density];
   const rowHeight = Math.round(colWidth * 0.75) + CARD_CAPTION_HEIGHT;
@@ -1013,6 +1016,7 @@ function PhotoGrid() {
   }, [rowHeight, virtualizer]);
 
   const loadPhotos = useCallback(async (p: number) => {
+    const gen = p === 1 ? ++requestGen.current : requestGen.current;
     setLoading(true);
     try {
       const store = usePhotosStore.getState();
@@ -1026,19 +1030,23 @@ function PhotoGrid() {
           folder: store.folderFilter,
         }
       );
+      // Category/filter/sort changed while this request was in flight —
+      // discard it; the newer request owns the grid now.
+      if (gen !== requestGen.current) return;
       if (p === 1) {
         setPhotos(res.photos);
       } else {
-        const existing = new Set(store.photos.map((ph) => ph.id));
+        const current = usePhotosStore.getState().photos;
+        const existing = new Set(current.map((ph) => ph.id));
         const newPhotos = res.photos.filter((ph) => !existing.has(ph.id));
-        setPhotos([...store.photos, ...newPhotos]);
+        setPhotos([...current, ...newPhotos]);
       }
       const totalPages = Math.ceil(res.total / res.limit);
       setHasMore(p < totalPages);
     } catch {
       // ignore
     }
-    setLoading(false);
+    if (gen === requestGen.current) setLoading(false);
   }, [setPhotos]);
 
   // Reload on category/filter/folder/sort change, or when undo/redo bumps
