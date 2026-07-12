@@ -2,6 +2,7 @@ import json
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 from fastapi import APIRouter
@@ -50,6 +51,53 @@ def _update_progress(stage: str, current: int, total: int, current_file: str = "
         state.progress["stages"][stage] = {"current": current, "total": total, "pct": pct}
 
 
+def _analyze_files_parallel(all_files):
+    """Run technical analysis across ``all_files`` using a thread pool.
+
+    Threads (not processes) on purpose: the production backend is a PyInstaller
+    --onefile frozen binary, and multiprocessing 'spawn' would re-exec that
+    binary and relaunch the server instead of running workers. OpenCV/numpy
+    release the GIL for imread/resize/Laplacian, so threads give real speedup.
+
+    Progress is only ever written from this (the calling) thread as each future
+    completes — never from a worker — keeping the progress store single-writer.
+    Honors ``state.cancel_requested``: on cancel it stops consuming results and
+    returns (cancelled=True); in-flight futures are left to finish harmlessly.
+
+    Returns ``(analyses, skipped, cancelled)``.
+    """
+    total_files = len(all_files)
+    analyses = {}
+    skipped = []
+
+    workers = min(8, (os.cpu_count() or 4))
+    executor = ThreadPoolExecutor(max_workers=workers)
+    try:
+        future_to_path = {
+            executor.submit(analyze_photo, path): path for path in all_files
+        }
+        done = 0
+        for future in as_completed(future_to_path):
+            if state.cancel_requested:
+                return analyses, skipped, True
+
+            path = future_to_path[future]
+            result = future.result()
+            if result is None:
+                skipped.append(path)
+            else:
+                analyses[path] = result
+
+            done += 1
+            _update_progress(
+                "technical_analysis", done, total_files, os.path.basename(path)
+            )
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    return analyses, skipped, False
+
+
 def _run_pipeline():
     try:
         # Collect JPEG files from all folders
@@ -68,26 +116,15 @@ def _run_pipeline():
         total_files = len(all_files)
         skipped = []
 
-        # Stage 1: Technical Analysis
+        # Stage 1: Technical Analysis (parallelized across a thread pool)
         _update_progress("technical_analysis", 0, total_files, "")
-        analyses = {}
-        for i, path in enumerate(all_files):
-            if state.cancel_requested:
-                _update_progress("cancelled", i, total_files, "")
-                with state.lock:
-                    state.is_running = False
-                return
-
-            result = analyze_photo(path)
-            if result is None:
-                skipped.append(path)
-            else:
-                analyses[path] = result
-
-            _update_progress(
-                "technical_analysis", i + 1, total_files,
-                os.path.basename(path)
-            )
+        analyses, analysis_skipped, cancelled = _analyze_files_parallel(all_files)
+        skipped.extend(analysis_skipped)
+        if cancelled:
+            _update_progress("cancelled", len(analyses) + len(analysis_skipped), total_files, "")
+            with state.lock:
+                state.is_running = False
+            return
 
         # Separate auto-rejected from candidates
         auto_rejected = {p: a for p, a in analyses.items() if a["auto_reject"]}
