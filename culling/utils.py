@@ -146,17 +146,74 @@ def list_jpeg_files_multi(directories: list) -> dict:
     return result
 
 
-def generate_thumbnail(path: str, cache_dir: str, max_edge: int = 300) -> str:
-    """Generate a thumbnail and cache it. Returns path to cached thumbnail.
-    Cache key is MD5 hash of the original file path."""
+# Derivative sizes: THUMB for grid tiles, PREVIEW for the detail panel /
+# loupe. PREVIEW matches the 1024px edge analysis already decodes at, so it
+# can be written during analysis without an extra decode.
+THUMB_MAX_EDGE = 320
+PREVIEW_MAX_EDGE = 1024
+
+
+def _cache_key(path: str) -> str:
     import hashlib
+    return hashlib.md5(path.encode()).hexdigest()
+
+
+def thumbnail_cache_path(path: str, cache_dir: str) -> str:
+    return os.path.join(cache_dir, f"{_cache_key(path)}.jpg")
+
+
+def preview_cache_path(path: str, cache_dir: str) -> str:
+    return os.path.join(cache_dir, f"{_cache_key(path)}.preview.jpg")
+
+
+def _shrink_to(img: np.ndarray, max_edge: int) -> np.ndarray:
+    h, w = img.shape[:2]
+    scale = max_edge / max(h, w)
+    if scale >= 1.0:
+        return img
+    return cv2.resize(
+        img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA
+    )
+
+
+def save_derivatives_from_image(img: np.ndarray, path: str, cache_dir: str) -> None:
+    """Write the thumbnail and preview for ``path`` from an already-decoded
+    image (skipping any that exist). Called during analysis, where the image
+    is in memory anyway — avoids a second full-resolution decode later."""
     os.makedirs(cache_dir, exist_ok=True)
-    key = hashlib.md5(path.encode()).hexdigest()
-    cache_path = os.path.join(cache_dir, f"{key}.jpg")
+    preview_path = preview_cache_path(path, cache_dir)
+    if not os.path.exists(preview_path):
+        cv2.imwrite(
+            preview_path,
+            _shrink_to(img, PREVIEW_MAX_EDGE),
+            [cv2.IMWRITE_JPEG_QUALITY, 85],
+        )
+    thumb_path = thumbnail_cache_path(path, cache_dir)
+    if not os.path.exists(thumb_path):
+        cv2.imwrite(
+            thumb_path,
+            _shrink_to(img, THUMB_MAX_EDGE),
+            [cv2.IMWRITE_JPEG_QUALITY, 85],
+        )
+
+
+def _generate_derivative(path: str, cache_path: str, max_edge: int) -> str:
     if os.path.exists(cache_path):
         return cache_path
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     img = load_and_resize(path, max_edge=max_edge)
     if img is None:
         raise ValueError(f"Could not load image: {path}")
     cv2.imwrite(cache_path, img, [cv2.IMWRITE_JPEG_QUALITY, 85])
     return cache_path
+
+
+def generate_thumbnail(path: str, cache_dir: str, max_edge: int = THUMB_MAX_EDGE) -> str:
+    """Return the cached thumbnail for ``path``, generating it on demand.
+    Cache key is MD5 hash of the original file path."""
+    return _generate_derivative(path, thumbnail_cache_path(path, cache_dir), max_edge)
+
+
+def generate_preview(path: str, cache_dir: str, max_edge: int = PREVIEW_MAX_EDGE) -> str:
+    """Return the cached 1024px preview for ``path``, generating it on demand."""
+    return _generate_derivative(path, preview_cache_path(path, cache_dir), max_edge)

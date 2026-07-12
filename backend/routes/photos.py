@@ -2,11 +2,11 @@ import base64
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import FileResponse, Response
 
 from backend.state import state
-from backend.thumbnail import get_thumbnail
+from backend.thumbnail import get_thumbnail, get_preview
 
 router = APIRouter()
 
@@ -17,6 +17,39 @@ def _encode_id(path: str) -> str:
 
 def _decode_id(photo_id: str) -> str:
     return base64.urlsafe_b64decode(photo_id.encode()).decode()
+
+
+def _source_etag(path: str) -> Optional[str]:
+    """ETag derived from the ORIGINAL file's identity — derivatives regenerated
+    from the same original are byte-equivalent for caching purposes."""
+    try:
+        st = os.stat(path)
+        return f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    except OSError:
+        return None
+
+
+def _cached_image_response(request: Request, serve_path: str, source_path: str) -> Response:
+    """Serve an image with immutable caching keyed to the source file, so the
+    webview never refetches thumbnails while scrolling."""
+    etag = _source_etag(source_path)
+    headers = {"Cache-Control": "max-age=31536000, immutable"}
+    if etag:
+        headers["ETag"] = etag
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=304, headers=headers)
+    return FileResponse(serve_path, media_type="image/jpeg", headers=headers)
+
+
+def _folder_of(path: str) -> Optional[str]:
+    """The input folder this photo came from (longest matching prefix)."""
+    best = None
+    for folder in state.input_folders:
+        norm = folder.rstrip(os.sep)
+        if path == norm or path.startswith(norm + os.sep):
+            if best is None or len(norm) > len(best):
+                best = norm
+    return best
 
 
 def _effective_destination(path: str) -> str:
@@ -45,6 +78,7 @@ def _photo_entry(path: str, analysis: dict) -> dict:
         "group_id": group_id,
         "group_size": len(group["members"]) if group else None,
         "is_group_best": bool(group and group["best"] == path),
+        "folder": _folder_of(path),
     }
 
 
@@ -81,11 +115,19 @@ def list_photos(
     max_iso: Optional[int] = Query(None),
     reject_reason: Optional[str] = Query(None),
     mismatch: bool = Query(False),
+    folder: Optional[str] = Query(None),
+    sort: str = Query("score", pattern="^(score|filename)$"),
 ):
+    folder_norm = folder.rstrip(os.sep) if folder else None
     photos = []
     for path, analysis in state.analyses.items():
         dest = _effective_destination(path)
         if category and not _category_matches(dest, category):
+            continue
+
+        if folder_norm is not None and not (
+            path == folder_norm or path.startswith(folder_norm + os.sep)
+        ):
             continue
 
         score = analysis.get("quality_score")
@@ -108,8 +150,10 @@ def list_photos(
 
         photos.append(_photo_entry(path, analysis))
 
-    # Sort by quality score descending
-    photos.sort(key=lambda p: p["quality_score"] or 0, reverse=True)
+    if sort == "filename":
+        photos.sort(key=lambda p: p["filename"])
+    else:
+        photos.sort(key=lambda p: p["quality_score"] or 0, reverse=True)
 
     total = len(photos)
     start = (page - 1) * limit
@@ -124,7 +168,7 @@ def list_photos(
 
 
 @router.get("/api/photos/{photo_id}/thumbnail")
-def photo_thumbnail(photo_id: str):
+def photo_thumbnail(photo_id: str, request: Request):
     try:
         path = _decode_id(photo_id)
     except Exception:
@@ -135,13 +179,30 @@ def photo_thumbnail(photo_id: str):
 
     try:
         thumb_path = get_thumbnail(path)
-        return FileResponse(thumb_path, media_type="image/jpeg")
+        return _cached_image_response(request, thumb_path, path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/photos/{photo_id}/preview")
+def photo_preview(photo_id: str, request: Request):
+    try:
+        path = _decode_id(photo_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid photo ID")
+
+    if path not in state.analyses:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    try:
+        preview_path = get_preview(path)
+        return _cached_image_response(request, preview_path, path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/api/photos/{photo_id}/full")
-def photo_full(photo_id: str):
+def photo_full(photo_id: str, request: Request):
     try:
         path = _decode_id(photo_id)
     except Exception:
@@ -153,7 +214,7 @@ def photo_full(photo_id: str):
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="File not found on disk")
 
-    return FileResponse(path, media_type="image/jpeg")
+    return _cached_image_response(request, path, path)
 
 
 @router.get("/api/photos/{photo_id}")
@@ -185,6 +246,22 @@ def group_detail(group_id: str):
         "kind": group["kind"],
         "best": _encode_id(group["best"]),
         "members": members,
+    }
+
+
+@router.get("/api/folders")
+def list_folders():
+    """Input folders with photo counts — lets the UI filter by SD card."""
+    counts = {}
+    for path in state.analyses:
+        folder = _folder_of(path)
+        if folder is not None:
+            counts[folder] = counts.get(folder, 0) + 1
+    return {
+        "folders": [
+            {"path": folder, "name": os.path.basename(folder) or folder, "count": n}
+            for folder, n in counts.items()
+        ]
     }
 
 
