@@ -13,7 +13,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLocale } from "@/lib/i18n";
 
 const DEV_FALLBACK_PORT = 9470;
-const BACKEND_CONNECT_TIMEOUT_MS = 20000;
+// The PyInstaller onefile sidecar can take a while to cold-start (it unpacks
+// ~170MB and imports OpenCV/scikit-image each launch), so wait generously
+// before giving up — we connect the instant the port is available anyway.
+const BACKEND_CONNECT_TIMEOUT_MS = 120000;
 const BACKEND_POLL_INTERVAL_MS = 250;
 
 type BackendStatus = "connecting" | "ready" | "error";

@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from culling.technical import (
     compute_sharpness,
     compute_exposure,
-    compute_contrast,
     compute_quality_score,
     classify_tier,
     BLUR_THRESHOLD,
