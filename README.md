@@ -30,6 +30,9 @@
 
 An open-source desktop application built by volunteers of **[Fikret Yuksel Foundation](https://fikretyukselfoundation.org)**. Designed to help FRC (FIRST Robotics Competition) media teams quickly sort through hundreds of competition photos — keeping the best shots, detecting duplicates, and organizing everything automatically.
 
+> **Load your SD cards → AI scores every shot → cull with <kbd>K</kbd> <kbd>M</kbd> <kbd>R</kbd> → export, organized.**
+> A full competition day culled in minutes, not hours.
+
 ## Download
 
 <table>
@@ -80,15 +83,26 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
 
 ## Features
 
-- **Technical Quality Analysis** — Evaluates sharpness, exposure, contrast, and EXIF data to score each photo (0–100)
-- **Duplicate & Burst Detection** — Finds exact duplicates (perceptual hashing + SSIM) and burst/similar shots (feature matching), keeps only the best from each group
-- **Smart Organization** — Automatically categorizes photos into Keep / Maybe / Reject
-- **Manual Review & Override** — Browse photos in a gallery view, drag between categories, batch operations with keyboard shortcuts
-- **Multi-folder Input** — Select multiple folders, optionally merge into a single output
-- **Export** — Copy organized photos to output folder with progress tracking
-- **Dark & Light Mode** — Toggle between themes, glassmorphism UI with FYF brand colors
-- **Bilingual** — Full Turkish and English language support (TR / EN)
-- **Cross-platform** — Native desktop app for macOS (.dmg), Windows (.exe), and Linux (.deb / .AppImage)
+### Analysis
+- **Technical quality scoring** — sharpness, exposure, contrast and EXIF combine into a 0–100 score for every photo
+- **Duplicate & burst detection** — perceptual hashing + SSIM catches exact duplicates; feature matching groups burst/similar shots and auto-picks the best frame
+- **Smart categorization** — every photo lands in Keep / Maybe / Reject before you touch anything
+
+### Review at speed
+- **Keyboard-first culling** — arrow keys move focus, <kbd>K</kbd>/<kbd>M</kbd>/<kbd>R</kbd> decide and auto-advance to the next photo; no clicking required
+- **Loupe view** — <kbd>Enter</kbd> opens a fullscreen preview with zoom to full resolution, a filmstrip, and the same one-key triage
+- **Per-card filtering** — shooting with multiple cameras? One click isolates a single SD card
+- **Compare mode** — 2–4 candidates side by side with synchronized zoom & pan
+- **Undo / redo everywhere** — <kbd>⌘Z</kbd> reverses any decision, including batch moves
+- **Instant grid** — thumbnails are generated during analysis and served with immutable caching, so scrolling thousands of photos stays smooth
+
+### Workflow
+- **Session resume** — close the app mid-cull; every decision is persisted and restored on the next launch
+- **Multi-folder input** — several cards at once, merged or per-folder output
+- **Organized export** — Keep / Maybe / Reject copied into tidy folders with live progress
+- **First-launch tour** — a 20-second animated walkthrough of the whole flow
+- **Dark & light mode, TR / EN** — glassmorphism UI with FYF brand colors
+- **Cross-platform** — native desktop app for macOS (.dmg), Windows (.exe), and Linux (.deb / .AppImage)
 
 ## Getting Started
 
@@ -122,9 +136,9 @@ The backend will print `BACKEND_PORT=9470` — the frontend connects to it autom
 ### Building for Production
 
 ```bash
-# Build Python sidecar binary
-pyinstaller --onefile --name fyf-backend backend/server.py \
-  --hidden-import culling --add-data "culling:culling"
+# Build Python sidecar binary (uses fyf-backend.spec)
+pip install pyinstaller
+pyinstaller fyf-backend.spec --noconfirm
 
 # Copy to Tauri binaries directory
 cp dist/fyf-backend ui/src-tauri/binaries/fyf-backend-$(rustc -vV | grep host | awk '{print $2}')
@@ -154,10 +168,10 @@ fyf-photo-culler/
 ├── backend/              # FastAPI server (Python sidecar)
 │   ├── server.py         # App entry + port discovery
 │   ├── state.py          # In-memory session state
-│   ├── thumbnail.py      # Thumbnail generation/caching
+│   ├── thumbnail.py      # Thumbnail & preview derivatives
 │   └── routes/           # REST API endpoints
 │       ├── analysis.py   # POST /analyze, GET /progress (SSE)
-│       ├── photos.py     # Photo listing, thumbnails, metadata
+│       ├── photos.py     # Photo listing, filters, cached image serving
 │       ├── review.py     # Manual override endpoints
 │       └── export.py     # File export with progress
 ├── culling/              # Core analysis engine
@@ -175,17 +189,22 @@ fyf-photo-culler/
 
 **Data flow:** Tauri launches Python sidecar → sidecar starts FastAPI on localhost → frontend calls REST API with SSE for real-time progress.
 
+**Why it feels fast:** 320px thumbnails and 1024px previews are written during analysis from the already-decoded image (no on-demand full-resolution decodes), image responses ship with immutable HTTP caching (ETag/304), and every review decision applies optimistically — the UI never waits for the network.
+
 ## Keyboard Shortcuts (Review Screen)
 
 | Key | Action |
 |-----|--------|
-| `K` | Move selected to Keep |
-| `M` | Move selected to Maybe |
-| `R` | Move selected to Reject |
-| `A` | Select all in current category |
-| `Esc` | Clear selection |
-| `Space` | Toggle selection |
-| `Arrow keys` | Navigate photos |
+| <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> | Move focus across the grid |
+| <kbd>K</kbd> / <kbd>M</kbd> / <kbd>R</kbd> | Keep / Maybe / Reject the focused photo (or the selection) — auto-advances |
+| <kbd>Enter</kbd> | Open the loupe (large view) |
+| <kbd>Z</kbd> | Zoom to full resolution in the loupe |
+| <kbd>Space</kbd> | Select / deselect the focused photo |
+| <kbd>A</kbd> | Select all in the current tab |
+| <kbd>C</kbd> | Compare selected (2–4) |
+| <kbd>⌘Z</kbd> / <kbd>⌘⇧Z</kbd> | Undo / Redo |
+| <kbd>?</kbd> | Show the shortcuts overlay |
+| <kbd>Esc</kbd> | Close panels / clear selection |
 
 ## Contributing
 
