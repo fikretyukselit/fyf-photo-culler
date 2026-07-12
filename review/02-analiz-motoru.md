@@ -1,5 +1,7 @@
 # 02 — Analiz Motoru (`culling/`)
 
+> **Durum (2026-07-12):** ✅ 2.1 EXIF rotasyon (C4) · ✅ 2.3 docstring/kod çelişkisi (Faz 1) · ✅ 2.11 recursive tarama (F0.4, RAW hâlâ JPEG-only ama artık bildiriliyor) · ✅ seri analiz → paralel (C5) · 🟡 2.7 O(n²) EXIF zaman-penceresiyle daraltıldı (F1.5) · 🟡 2.8 burst tek-kare seçimi UI'da görünür kılındı (F1.1) ama otomatik seçim sürüyor. **Açık/ertelenen:** 2.2 keskinlik kalibrasyonu, 2.4 iki-geçiş sınıflandırma, 2.5 ölü sabit, 2.6 EXIF çoklu-okuma + deprecated `_getexif`, 2.9 EXIF skoru pan cezası, 2.10 sabit ışık eşikleri (2.2/2.10 → C6).
+
 ## Nasıl Çalışıyor (özet)
 
 1. **Skorlama** (`technical.py:analyze_photo`): görüntü 1024px'e küçültülür → 3×3 grid Laplacian varyansının en iyi 2 karosunun ortalaması (keskinlik), koyu/parlak piksel oranı (pozlama), RMS std (kontrast), ISO + enstantane (EXIF skoru) → ağırlıklı toplam (%40 keskinlik, %25 pozlama, %15 kontrast, %20 EXIF).

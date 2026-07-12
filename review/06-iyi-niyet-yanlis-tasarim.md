@@ -1,5 +1,7 @@
 # 06 — İyi Niyetle Yapılmış Ama Yanlış Düşünülmüş Kararlar
 
+> **Durum (2026-07-12):** ✅ 6.5 uçucu state → kalıcılık (F0.1) · ✅ 6.6 yarım-kalan port keşfi tamamlandı (F0.3) · 🟡 6.1 burst sessiz iyi-kare kaybı: gruplar UI'da görünür + undo (F1.1/F0.2) ama otomatik ön-seçim sürüyor · ✅ 6.7 duplicate/similar docstring-kod çelişkisi giderildi. **Açık:** 6.2 karanlık cezası sabitleri, 6.3 top-2 keskinlik, 6.4 kopya-vs-taşı export akışı, 6.8 EXIF skoru profil varsayımı, 6.9 `*.spec` versiyon dışı.
+
 Bu bölüm, "kötü kod" değil, **doğru bir problemi çözmek isterken yanlış modele oturmuş** tasarım kararlarını toplar. Her biri için niyet, neden yanlış çıktığı ve doğrusu.
 
 ## 6.1 "Makine en iyi kareyi seçsin" → sessiz iyi-kare kaybı

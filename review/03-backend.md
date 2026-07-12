@@ -1,5 +1,7 @@
 # 03 — Backend (`backend/`, FastAPI sidecar)
 
+> **Durum (2026-07-12):** ✅ 3.1 kalıcılık (F0.1: `persistence.py` + oturum devam) · ✅ CORS `*` → localhost allowlist (D) · ✅ undo/redo + session endpoint'leri eklendi. **Açık:** 3.2 multi-folder `startswith` hatası, 3.3 export SSE hata yakalama, 3.4 analiz yeniden-başlatma yarışı, 3.5 SSE tamamlanma protokolü, thumbnail cache'in hâlâ CWD'ye yazması (app-data helper eklendi ama thumbnail taşınmadı).
+
 ## API Özeti
 
 | Endpoint | İş |

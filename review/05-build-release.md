@@ -1,5 +1,7 @@
 # 05 — Build, Release ve Repo Hijyeni
 
+> **Durum (2026-07-12):** ✅ 5.1 CI kalite kapısı (F0.5: ruff+pytest+tsc+build) · ✅ 5.2 sürüm uyumsuzluğu (pyproject 0.1.3 + Makefile bump) · ✅ 5.3 `latest.json` boş-artefakt guard'ı (D) · 🟡 5.4 imzalama/notarizasyon runbook yazıldı (`docs/RELEASE_SIGNING.md`) ama etkinleştirilmedi + UPX hâlâ açık. **Açık:** 5.5 sidecar açılış gecikmesi (`--onedir`/Rust), 5.6 `*.spec` gitignore'da (build tarifi versiyonlanmıyor), bağımlılık denetimi (pip/cargo/bun audit), crash reporting.
+
 ## Mevcut Pipeline
 
 `v*` tag push → 4 hedefli matris (macOS arm64/x64, Windows x64, Linux x64) → PyInstaller sidecar → Tauri build → artefaktlar + `latest.json` üretimi → GitHub Release. Tauri updater minisign public key ile imza doğruluyor; in-app güncelleme popup'ı çalışıyor. Bir gönüllü projesi için ciddi ve büyük ölçüde doğru kurulmuş bir altyapı.
