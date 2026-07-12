@@ -5,7 +5,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routes import analysis, photos, review, export
+from backend.routes import analysis, photos, review, export, session
+from backend import persistence
+from backend.state import state
 
 app = FastAPI(title="FYF Photo Culler Backend")
 
@@ -21,6 +23,7 @@ app.include_router(analysis.router)
 app.include_router(photos.router)
 app.include_router(review.router)
 app.include_router(export.router)
+app.include_router(session.router)
 
 
 def find_free_port(start=9470, end=9490):
@@ -35,6 +38,8 @@ def find_free_port(start=9470, end=9490):
 
 
 def main():
+    # Restore any prior session before serving so the UI can offer to resume.
+    persistence.load_into(state)
     port = find_free_port()
     print(f"BACKEND_PORT={port}", flush=True)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getVersion } from "@tauri-apps/api/app";
-import { FolderOpen, X, Play, FolderOutput } from "lucide-react";
+import { FolderOpen, X, Play, FolderOutput, History, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useSessionStore } from "@/lib/stores";
+import { useSessionStore, usePhotosStore } from "@/lib/stores";
 import { useLocale } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import type { SessionInfo } from "@/lib/api";
 import fyfIcon from "@/assets/orta.png";
 
 export function Landing() {
@@ -25,10 +26,34 @@ export function Landing() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState("");
+  const [session, setSession] = useState<SessionInfo | null>(null);
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
   }, []);
+
+  // Offer to resume a session restored from disk at startup.
+  useEffect(() => {
+    api.getSession()
+      .then((s) => setSession(s.resumable ? s : null))
+      .catch(() => {});
+  }, []);
+
+  function handleResume() {
+    // Processing normally lands the user on the "keep" tab; do the same here
+    // since resume skips Processing (the grid has no "all" category).
+    usePhotosStore.getState().setActiveCategory("keep");
+    setScreen("review");
+  }
+
+  async function handleDiscard() {
+    try {
+      await api.discardSession();
+    } catch {
+      // ignore — clearing is best-effort
+    }
+    setSession(null);
+  }
 
   async function handleSelectFolders() {
     const selected = await open({
@@ -118,6 +143,34 @@ export function Landing() {
             </span>
           )}
         </div>
+
+        {/* Resume previous session */}
+        {session && (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <div className="mb-3 flex items-start gap-3">
+              <History className="mt-0.5 size-5 shrink-0 text-amber-400" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">{t("session.resumeTitle")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("session.resumeHint", {
+                    total: session.summary?.total ?? 0,
+                    keep: session.summary?.keep ?? 0,
+                  })}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1 gap-2" onClick={handleResume}>
+                <History className="size-4" />
+                {t("session.resume")}
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={handleDiscard}>
+                <Trash2 className="size-4" />
+                {t("session.discard")}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Select folders */}
         <Button
