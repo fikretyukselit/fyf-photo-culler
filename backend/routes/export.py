@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 
 from culling.organizer import DEST_TO_DIR
 from culling.utils import safe_copy
+from culling import xmp
 from backend.state import state
 
 router = APIRouter()
@@ -70,3 +71,21 @@ def export_photos():
         yield f"data: {json.dumps({'stage': 'complete', 'current': total, 'total': total, 'pct': 100, 'current_file': ''})}\n\n"
 
     return StreamingResponse(_export_stream(), media_type="text/event-stream")
+
+
+@router.post("/api/export/xmp")
+def export_xmp():
+    destinations = _effective_destinations()
+    written = 0
+    for path in state.analyses.keys():
+        dest_key = destinations.get(path)
+        if dest_key is None:
+            continue
+        try:
+            sidecar_path = xmp.write_sidecar(path, dest_key)
+        except OSError:
+            continue
+        if sidecar_path is not None:
+            written += 1
+
+    return {"status": "ok", "written": written}
