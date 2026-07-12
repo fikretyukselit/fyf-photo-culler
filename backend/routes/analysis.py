@@ -12,6 +12,7 @@ from culling.technical import analyze_photo
 from culling.duplicates import detect_duplicates_and_similar
 from culling.utils import list_jpeg_files_multi, count_scannable
 from backend.state import state
+from backend import persistence
 
 router = APIRouter()
 
@@ -146,6 +147,10 @@ def _run_pipeline():
             state.progress["current_file"] = ""
             state.is_running = False
 
+        # Persist so the session survives a crash/close/update.
+        persistence.save_analysis(state)
+        persistence.save_overrides(state)
+
     except Exception as e:
         _update_progress("error", 0, 0, str(e))
         with state.lock:
@@ -159,6 +164,7 @@ def start_analysis(req: AnalyzeRequest):
             return {"error": "Analysis already in progress"}
         state.is_running = True
         state.cancel_requested = False
+        state.loaded_from_disk = False
         state.input_folders = req.folders
         state.merge_mode = req.merge
         state.output_dir = req.output
@@ -167,6 +173,8 @@ def start_analysis(req: AnalyzeRequest):
         state.overrides = {}
         state.groups = {}
         state.path_to_group = {}
+        state.undo_stack = []
+        state.redo_stack = []
         state.progress = {
             "stage": "starting",
             "current": 0,

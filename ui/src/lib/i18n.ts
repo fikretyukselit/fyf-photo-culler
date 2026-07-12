@@ -122,6 +122,16 @@ const translations = {
     "backend.errorTitle": "Couldn't reach the analysis engine",
     "backend.errorHint": "The background process didn't start in time. This can happen if the port is in use or another copy of the app is running. Try again, or restart the app.",
     "backend.retry": "Retry",
+
+    // Session resume
+    "session.resumeTitle": "Resume your previous session?",
+    "session.resumeHint": "{total} photos reviewed ({keep} kept). Your decisions were saved.",
+    "session.resume": "Resume",
+    "session.discard": "Discard",
+
+    // Undo / redo
+    "history.undo": "Undo (Ctrl/Cmd+Z)",
+    "history.redo": "Redo (Ctrl/Cmd+Shift+Z)",
   },
   tr: {
     // Landing
@@ -243,6 +253,16 @@ const translations = {
     "backend.errorTitle": "Analiz motoruna ulaşılamadı",
     "backend.errorHint": "Arka plan süreci zamanında başlamadı. Port kullanımdaysa veya uygulamanın başka bir kopyası açıksa bu olabilir. Tekrar deneyin ya da uygulamayı yeniden başlatın.",
     "backend.retry": "Tekrar Dene",
+
+    // Session resume
+    "session.resumeTitle": "Önceki oturumunuza devam edilsin mi?",
+    "session.resumeHint": "{total} fotoğraf incelendi ({keep} tutuldu). Kararlarınız kaydedilmişti.",
+    "session.resume": "Devam Et",
+    "session.discard": "Sil",
+
+    // Undo / redo
+    "history.undo": "Geri al (Ctrl/Cmd+Z)",
+    "history.redo": "Yinele (Ctrl/Cmd+Shift+Z)",
   },
 } as const;
 

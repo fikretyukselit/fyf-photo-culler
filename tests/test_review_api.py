@@ -83,6 +83,10 @@ def clean_state():
         state.overrides = {}
         state.groups = {}
         state.path_to_group = {}
+        state.undo_stack = []
+        state.redo_stack = []
+        state.loaded_from_disk = False
+        state.saved_at = None
 
     _reset()
     yield
@@ -241,3 +245,86 @@ class TestPhotoFilters:
         client.post("/api/override", json={"photo_id": pid, "destination": "reject"})
         res = client.get("/api/photos", params={"mismatch": "true"})
         assert pid in _ids(res)
+
+
+class TestUndoRedo:
+    def test_undo_reverts_single_override(self):
+        _seed_state("/tmp/u1.jpg", destination="keep")
+        pid = _encode_id("/tmp/u1.jpg")
+
+        client.post("/api/override", json={"photo_id": pid, "destination": "reject"})
+        assert state.overrides["/tmp/u1.jpg"] == "reject"
+
+        res = client.post("/api/undo")
+        body = res.json()
+        assert body["status"] == "ok"
+        assert "/tmp/u1.jpg" not in state.overrides  # back to unset
+        assert body["can_undo"] is False
+        assert body["can_redo"] is True
+
+    def test_redo_reapplies(self):
+        _seed_state("/tmp/u2.jpg", destination="keep")
+        pid = _encode_id("/tmp/u2.jpg")
+
+        client.post("/api/override", json={"photo_id": pid, "destination": "maybe"})
+        client.post("/api/undo")
+        assert "/tmp/u2.jpg" not in state.overrides
+
+        res = client.post("/api/redo")
+        assert res.json()["status"] == "ok"
+        assert state.overrides["/tmp/u2.jpg"] == "maybe"
+
+    def test_undo_batch_is_single_step(self):
+        _seed_many([
+            {"path": "/tmp/b1.jpg", "destination": "keep"},
+            {"path": "/tmp/b2.jpg", "destination": "keep"},
+        ])
+        ids = [_encode_id("/tmp/b1.jpg"), _encode_id("/tmp/b2.jpg")]
+
+        client.post("/api/override/batch", json={"photo_ids": ids, "destination": "reject"})
+        assert state.overrides["/tmp/b1.jpg"] == "reject"
+        assert state.overrides["/tmp/b2.jpg"] == "reject"
+
+        client.post("/api/undo")
+        assert "/tmp/b1.jpg" not in state.overrides
+        assert "/tmp/b2.jpg" not in state.overrides
+
+    def test_new_override_clears_redo(self):
+        _seed_state("/tmp/u3.jpg", destination="keep")
+        pid = _encode_id("/tmp/u3.jpg")
+
+        client.post("/api/override", json={"photo_id": pid, "destination": "reject"})
+        client.post("/api/undo")
+        assert client.get("/api/history").json()["can_redo"] is True
+
+        client.post("/api/override", json={"photo_id": pid, "destination": "maybe"})
+        assert client.get("/api/history").json()["can_redo"] is False
+
+    def test_undo_on_empty_history_is_noop(self):
+        _seed_state("/tmp/u4.jpg", destination="keep")
+        res = client.post("/api/undo")
+        assert res.json()["status"] == "noop"
+
+
+class TestSession:
+    def test_session_not_resumable_by_default(self):
+        _seed_state("/tmp/s1.jpg", destination="keep")
+        # loaded_from_disk is False (reset by fixture) → not resumable.
+        res = client.get("/api/session")
+        assert res.json()["resumable"] is False
+
+    def test_session_resumable_when_loaded_from_disk(self):
+        _seed_state("/tmp/s2.jpg", destination="keep")
+        state.loaded_from_disk = True
+        res = client.get("/api/session")
+        body = res.json()
+        assert body["resumable"] is True
+        assert body["summary"]["keep"] == 1
+
+    def test_discard_clears_state(self):
+        _seed_state("/tmp/s3.jpg", destination="keep")
+        state.loaded_from_disk = True
+        res = client.post("/api/session/discard")
+        assert res.json()["status"] == "ok"
+        assert state.analyses == {}
+        assert client.get("/api/session").json()["resumable"] is False

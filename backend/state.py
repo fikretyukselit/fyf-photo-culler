@@ -23,6 +23,12 @@ class SessionState:
     thumbnail_cache_dir: str = ".thumbnails"
     is_running: bool = False
     cancel_requested: bool = False
+    # Session persistence bookkeeping
+    loaded_from_disk: bool = False   # True when active state was restored from a saved session
+    saved_at: float = None           # Unix timestamp of the restored session, if any
+    # Undo/redo: each entry maps path -> previous override value (None = was unset)
+    undo_stack: list = field(default_factory=list)
+    redo_stack: list = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 

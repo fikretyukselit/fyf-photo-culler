@@ -117,6 +117,26 @@ class ApiClient {
     });
   }
 
+  async undo() {
+    return this.request<HistoryResult>("/api/undo", { method: "POST" });
+  }
+
+  async redo() {
+    return this.request<HistoryResult>("/api/redo", { method: "POST" });
+  }
+
+  async getHistory() {
+    return this.request<{ can_undo: boolean; can_redo: boolean }>("/api/history");
+  }
+
+  async getSession() {
+    return this.request<SessionInfo>("/api/session");
+  }
+
+  async discardSession() {
+    return this.request<{ status: string }>("/api/session/discard", { method: "POST" });
+  }
+
   exportStream(): EventSource {
     return new EventSource(`${this.baseUrl}/api/export`);
   }
@@ -167,5 +187,19 @@ interface PhotoFilterParams {
   mismatch?: boolean;
 }
 
-export type { Photo, PhotoGroup, PhotoFilterParams };
+interface HistoryResult {
+  status: string;
+  affected?: string[];
+  can_undo: boolean;
+  can_redo: boolean;
+}
+
+interface SessionInfo {
+  resumable: boolean;
+  saved_at: number | null;
+  input_folders: string[];
+  summary: { keep: number; maybe: number; reject: number; total: number } | null;
+}
+
+export type { Photo, PhotoGroup, PhotoFilterParams, HistoryResult, SessionInfo };
 export const api = new ApiClient();

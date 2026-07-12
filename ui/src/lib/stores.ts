@@ -127,6 +127,11 @@ interface PhotosStore {
   filters: PhotoFilters;
   summary: Summary;
   sortBy: SortBy;
+  canUndo: boolean;
+  canRedo: boolean;
+  reloadToken: number;
+  setHistory: (h: { can_undo: boolean; can_redo: boolean }) => void;
+  bumpReload: () => void;
   setPhotos: (photos: Photo[]) => void;
   setActiveCategory: (cat: string) => void;
   toggleSelect: (id: string) => void;
@@ -153,6 +158,12 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
   filters: { ...EMPTY_FILTERS },
   summary: { keep: 0, maybe: 0, reject: 0, total: 0 },
   sortBy: "quality_score",
+  canUndo: false,
+  canRedo: false,
+  reloadToken: 0,
+
+  setHistory: ({ can_undo, can_redo }) => set({ canUndo: can_undo, canRedo: can_redo }),
+  bumpReload: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),
 
   setPhotos: (photos) => set({ photos }),
 

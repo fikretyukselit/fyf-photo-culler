@@ -14,8 +14,10 @@ import {
   Filter,
   Image as ImageIcon,
   Layers,
+  Redo2,
   Star,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -777,6 +779,7 @@ function PhotoGrid() {
     selectedIds,
     sortBy,
     filters,
+    reloadToken,
     toggleSelect,
     selectRange,
     setDetailPhoto,
@@ -866,13 +869,14 @@ function PhotoGrid() {
     setLoading(false);
   }, [setPhotos]);
 
-  // Reload on category or filter change (filters reset pagination to page 1).
+  // Reload on category/filter change, or when an undo/redo bumps reloadToken.
+  // (filters reset pagination to page 1).
   useEffect(() => {
     setPage(1);
     setHasMore(true);
     loadPhotos(1);
     setFocusIdx(-1);
-  }, [activeCategory, filters, loadPhotos]);
+  }, [activeCategory, filters, reloadToken, loadPhotos]);
 
   const loadMore = useCallback(async () => {
     const next = page + 1;
@@ -1052,6 +1056,75 @@ function PhotoGrid() {
 
 // ─── Main Review Component ───────────────────────────────────
 
+function UndoRedo() {
+  const { canUndo, canRedo, summary, setHistory, setSummary, bumpReload } = usePhotosStore();
+  const { t } = useLocale();
+
+  // Keep undo/redo availability fresh — summary changes after every review action.
+  useEffect(() => {
+    api.getHistory().then(setHistory).catch(() => {});
+  }, [summary, setHistory]);
+
+  const run = useCallback(
+    async (kind: "undo" | "redo") => {
+      try {
+        const res = kind === "undo" ? await api.undo() : await api.redo();
+        if (res.status === "noop") {
+          setHistory(res);
+          return;
+        }
+        setHistory(res);
+        const s = await api.getSummary();
+        setSummary(s);
+        bumpReload();
+      } catch (e) {
+        console.error(`${kind} failed:`, e);
+      }
+    },
+    [setHistory, setSummary, bumpReload]
+  );
+
+  // Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z (or Ctrl+Y) = redo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        run("undo");
+      } else if ((k === "z" && e.shiftKey) || k === "y") {
+        e.preventDefault();
+        run("redo");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [run]);
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => run("undo")}
+        disabled={!canUndo}
+        title={t("history.undo")}
+        className="rounded-md p-1.5 text-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+      >
+        <Undo2 className="size-4" />
+      </button>
+      <button
+        onClick={() => run("redo")}
+        disabled={!canRedo}
+        title={t("history.redo")}
+        className="rounded-md p-1.5 text-foreground/60 transition-colors hover:bg-foreground/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+      >
+        <Redo2 className="size-4" />
+      </button>
+    </div>
+  );
+}
+
 export function Review() {
   const { setScreen } = useSessionStore();
   const { selectedIds, summary } = usePhotosStore();
@@ -1064,6 +1137,7 @@ export function Review() {
         <CategoryTabs />
         <SortDropdown />
         <FilterPanel />
+        <UndoRedo />
         <div className="flex-1" />
         {selectedIds.size > 0 && (
           <span className="text-xs text-white/40">
