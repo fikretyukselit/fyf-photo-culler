@@ -132,6 +132,35 @@ const translations = {
     // Undo / redo
     "history.undo": "Undo (Ctrl/Cmd+Z)",
     "history.redo": "Redo (Ctrl/Cmd+Shift+Z)",
+
+    // Folder (SD card) filter
+    "folder.all": "All folders",
+
+    // Grid / triage
+    "review.densityTitle": "Thumbnail size",
+    "review.loading": "Loading photos…",
+    "triage.failed": "Couldn't save — change reverted",
+
+    // Loupe
+    "loupe.zoomHint": "Z or click to zoom",
+    "loupe.close": "Close (Esc)",
+    "detail.openLoupe": "Large view (Enter)",
+    "detail.prev": "Previous (←)",
+    "detail.next": "Next (→)",
+    "detail.position": "{i} of {n}",
+
+    // Shortcuts overlay
+    "shortcuts.title": "Keyboard Shortcuts",
+    "shortcuts.hint": "? shortcuts",
+    "shortcuts.navigate": "Move focus",
+    "shortcuts.triage": "Keep / Maybe / Reject (focused or selected)",
+    "shortcuts.select": "Select / deselect focused photo",
+    "shortcuts.loupe": "Open large view",
+    "shortcuts.selectAll": "Select all in tab",
+    "shortcuts.compare": "Compare selected (2–4)",
+    "shortcuts.zoom": "Zoom in large view",
+    "shortcuts.undoRedo": "Undo / Redo",
+    "shortcuts.close": "Close / clear selection",
   },
   tr: {
     // Landing
@@ -263,6 +292,35 @@ const translations = {
     // Undo / redo
     "history.undo": "Geri al (Ctrl/Cmd+Z)",
     "history.redo": "Yinele (Ctrl/Cmd+Shift+Z)",
+
+    // Folder (SD card) filter
+    "folder.all": "Tüm klasörler",
+
+    // Grid / triage
+    "review.densityTitle": "Küçük resim boyutu",
+    "review.loading": "Fotoğraflar yükleniyor…",
+    "triage.failed": "Kaydedilemedi — değişiklik geri alındı",
+
+    // Loupe
+    "loupe.zoomHint": "Yakınlaştırmak için Z veya tıkla",
+    "loupe.close": "Kapat (Esc)",
+    "detail.openLoupe": "Büyük görünüm (Enter)",
+    "detail.prev": "Önceki (←)",
+    "detail.next": "Sonraki (→)",
+    "detail.position": "{i} / {n}",
+
+    // Shortcuts overlay
+    "shortcuts.title": "Klavye Kısayolları",
+    "shortcuts.hint": "? kısayollar",
+    "shortcuts.navigate": "Odağı taşı",
+    "shortcuts.triage": "Tut / Belki / Reddet (odaktaki veya seçili)",
+    "shortcuts.select": "Odaktaki fotoğrafı seç / bırak",
+    "shortcuts.loupe": "Büyük görünümü aç",
+    "shortcuts.selectAll": "Sekmedeki tümünü seç",
+    "shortcuts.compare": "Seçilenleri karşılaştır (2–4)",
+    "shortcuts.zoom": "Büyük görünümde yakınlaştır",
+    "shortcuts.undoRedo": "Geri al / Yinele",
+    "shortcuts.close": "Kapat / seçimi temizle",
   },
 } as const;
 

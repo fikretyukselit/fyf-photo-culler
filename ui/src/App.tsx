@@ -193,7 +193,8 @@ function App() {
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-background rounded-[10px]">
       <Titlebar />
       {backendStatus === "ready" && <UpdatePopup />}
-      <main className="flex-1 overflow-hidden">
+      {/* pt matches the fixed 38px titlebar so screen content never hides under it */}
+      <main className="flex-1 overflow-hidden pt-[38px]">
         {backendStatus !== "ready" ? (
           <BackendGate status={backendStatus} onRetry={retry} />
         ) : (

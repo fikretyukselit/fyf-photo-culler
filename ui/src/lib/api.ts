@@ -49,6 +49,7 @@ class ApiClient {
     page?: number,
     limit?: number,
     filters?: PhotoFilterParams,
+    opts?: { sort?: "score" | "filename"; folder?: string | null },
   ) {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
@@ -62,14 +63,24 @@ class ApiClient {
       if (filters.reject_reason != null) params.set("reject_reason", filters.reject_reason);
       if (filters.mismatch) params.set("mismatch", "true");
     }
+    if (opts?.sort) params.set("sort", opts.sort);
+    if (opts?.folder) params.set("folder", opts.folder);
     const qs = params.toString();
     return this.request<{ photos: Photo[]; total: number; page: number; limit: number }>(
       `/api/photos${qs ? `?${qs}` : ""}`
     );
   }
 
+  async getFolders() {
+    return this.request<{ folders: FolderInfo[] }>("/api/folders");
+  }
+
   thumbnailUrl(photoId: string): string {
     return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/thumbnail`;
+  }
+
+  previewUrl(photoId: string): string {
+    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/preview`;
   }
 
   fullUrl(photoId: string): string {
@@ -169,6 +180,13 @@ interface Photo {
   group_id: string | null;
   group_size: number | null;
   is_group_best: boolean;
+  folder: string | null;
+}
+
+interface FolderInfo {
+  path: string;
+  name: string;
+  count: number;
 }
 
 interface PhotoGroup {
@@ -201,5 +219,5 @@ interface SessionInfo {
   summary: { keep: number; maybe: number; reject: number; total: number } | null;
 }
 
-export type { Photo, PhotoGroup, PhotoFilterParams, HistoryResult, SessionInfo };
+export type { Photo, PhotoGroup, PhotoFilterParams, HistoryResult, SessionInfo, FolderInfo };
 export const api = new ApiClient();
