@@ -88,11 +88,43 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
 type SortBy = "quality_score" | "filename";
 
+export interface PhotoFilters {
+  minScore: number | null;
+  maxScore: number | null;
+  minIso: number | null;
+  maxIso: number | null;
+  rejectReason: string | null;
+  mismatch: boolean;
+}
+
+export const EMPTY_FILTERS: PhotoFilters = {
+  minScore: null,
+  maxScore: null,
+  minIso: null,
+  maxIso: null,
+  rejectReason: null,
+  mismatch: false,
+};
+
+export function countActiveFilters(f: PhotoFilters): number {
+  let n = 0;
+  if (f.minScore != null) n++;
+  if (f.maxScore != null) n++;
+  if (f.minIso != null) n++;
+  if (f.maxIso != null) n++;
+  if (f.rejectReason != null) n++;
+  if (f.mismatch) n++;
+  return n;
+}
+
 interface PhotosStore {
   photos: Photo[];
   activeCategory: string;
   selectedIds: Set<string>;
   detailPhoto: Photo | null;
+  activeGroupId: string | null;
+  comparePhotos: Photo[] | null;
+  filters: PhotoFilters;
   summary: Summary;
   sortBy: SortBy;
   setPhotos: (photos: Photo[]) => void;
@@ -102,6 +134,10 @@ interface PhotosStore {
   selectAll: () => void;
   clearSelection: () => void;
   setDetailPhoto: (photo: Photo | null) => void;
+  setActiveGroupId: (groupId: string | null) => void;
+  setComparePhotos: (photos: Photo[] | null) => void;
+  setFilters: (patch: Partial<PhotoFilters>) => void;
+  clearFilters: () => void;
   setSummary: (summary: Summary) => void;
   setSortBy: (sort: SortBy) => void;
   updatePhotoDestination: (id: string, destination: string) => void;
@@ -112,13 +148,25 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
   activeCategory: "all",
   selectedIds: new Set<string>(),
   detailPhoto: null,
+  activeGroupId: null,
+  comparePhotos: null,
+  filters: { ...EMPTY_FILTERS },
   summary: { keep: 0, maybe: 0, reject: 0, total: 0 },
   sortBy: "quality_score",
 
   setPhotos: (photos) => set({ photos }),
 
   setActiveCategory: (activeCategory) =>
-    set({ activeCategory, selectedIds: new Set() }),
+    set((state) => ({
+      activeCategory,
+      selectedIds: new Set(),
+      // The reject-reason filter only applies to the reject tab; drop it
+      // elsewhere so it can't silently hide the whole category.
+      filters:
+        activeCategory === "reject"
+          ? state.filters
+          : { ...state.filters, rejectReason: null },
+    })),
 
   toggleSelect: (id) =>
     set((state) => {
@@ -167,6 +215,15 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
   clearSelection: () => set({ selectedIds: new Set() }),
 
   setDetailPhoto: (detailPhoto) => set({ detailPhoto }),
+
+  setActiveGroupId: (activeGroupId) => set({ activeGroupId }),
+
+  setComparePhotos: (comparePhotos) => set({ comparePhotos }),
+
+  setFilters: (patch) =>
+    set((state) => ({ filters: { ...state.filters, ...patch } })),
+
+  clearFilters: () => set({ filters: { ...EMPTY_FILTERS } }),
 
   setSummary: (summary) => set({ summary }),
 

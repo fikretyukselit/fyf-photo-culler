@@ -44,11 +44,24 @@ class ApiClient {
     });
   }
 
-  async getPhotos(category?: string, page?: number, limit?: number) {
+  async getPhotos(
+    category?: string,
+    page?: number,
+    limit?: number,
+    filters?: PhotoFilterParams,
+  ) {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
     if (page != null) params.set("page", String(page));
     if (limit != null) params.set("limit", String(limit));
+    if (filters) {
+      if (filters.min_score != null) params.set("min_score", String(filters.min_score));
+      if (filters.max_score != null) params.set("max_score", String(filters.max_score));
+      if (filters.min_iso != null) params.set("min_iso", String(filters.min_iso));
+      if (filters.max_iso != null) params.set("max_iso", String(filters.max_iso));
+      if (filters.reject_reason != null) params.set("reject_reason", filters.reject_reason);
+      if (filters.mismatch) params.set("mismatch", "true");
+    }
     const qs = params.toString();
     return this.request<{ photos: Photo[]; total: number; page: number; limit: number }>(
       `/api/photos${qs ? `?${qs}` : ""}`
@@ -65,6 +78,10 @@ class ApiClient {
 
   async getPhoto(photoId: string) {
     return this.request<Photo>(`/api/photos/${encodeURIComponent(photoId)}`);
+  }
+
+  async getGroup(groupId: string) {
+    return this.request<PhotoGroup>(`/api/groups/${encodeURIComponent(groupId)}`);
   }
 
   async getSummary() {
@@ -129,7 +146,26 @@ interface Photo {
   shutter_speed: number | null;
   aperture: number | null;
   file_size: number | null;
+  group_id: string | null;
+  group_size: number | null;
+  is_group_best: boolean;
 }
 
-export type { Photo };
+interface PhotoGroup {
+  id: string;
+  kind: "duplicate" | "similar";
+  best: string;
+  members: Photo[];
+}
+
+interface PhotoFilterParams {
+  min_score?: number | null;
+  max_score?: number | null;
+  min_iso?: number | null;
+  max_iso?: number | null;
+  reject_reason?: string | null;
+  mismatch?: boolean;
+}
+
+export type { Photo, PhotoGroup, PhotoFilterParams };
 export const api = new ApiClient();

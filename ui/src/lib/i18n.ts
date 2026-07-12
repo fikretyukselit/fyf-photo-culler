@@ -57,6 +57,44 @@ const translations = {
     "detail.exifScore": "EXIF Score",
     "detail.fileSize": "File Size",
 
+    // Groups
+    "group.badge_tooltip": "This photo is part of a group of similar shots. Click to review the group.",
+    "group.title": "Photo Group",
+    "group.auto_pick": "Auto pick",
+    "group.view": "View group (×{n})",
+    "group.keep_this_reject_rest": "Keep this, reject the rest",
+    "group.kind_duplicate": "Duplicates",
+    "group.kind_similar": "Similar shots",
+    "group.members": "{n} photos in this group",
+    "group.compare": "Compare",
+
+    // Compare
+    "compare.title": "Compare",
+    "compare.open": "Compare",
+    "compare.keep_this": "Keep this, reject others",
+    "compare.hint": "Scroll to zoom · drag to pan · double-click to reset · Esc to close",
+    "compare.auto_pick": "Auto pick",
+    "compare.needs_selection": "Select 2-4 photos to compare",
+
+    // Filter
+    "filter.button": "Filter",
+    "filter.title": "Filters",
+    "filter.scoreRange": "Score range",
+    "filter.isoRange": "ISO range",
+    "filter.min": "Min",
+    "filter.max": "Max",
+    "filter.rejectReason": "Reject reason",
+    "filter.anyReason": "Any reason",
+    "filter.mismatch": "Disagrees with engine",
+    "filter.clear": "Clear",
+    "filter.noMatches": "No photos match the current filters",
+    "filter.reason_blurry": "Blurry",
+    "filter.reason_dark": "Dark",
+    "filter.reason_overexposed": "Overexposed",
+    "filter.reason_duplicate": "Duplicate",
+    "filter.reason_similar": "Similar",
+    "filter.reason_reject": "Manual reject",
+
     // Export
     "export.title": "Export Photos",
     "export.summary": "Summary",
@@ -133,6 +171,44 @@ const translations = {
     "detail.exifScore": "EXIF Puani",
     "detail.fileSize": "Dosya Boyutu",
 
+    // Groups
+    "group.badge_tooltip": "Bu fotoğraf benzer karelerden oluşan bir grubun parçası. Grubu incelemek için tıklayın.",
+    "group.title": "Fotoğraf Grubu",
+    "group.auto_pick": "Otomatik seçim",
+    "group.view": "Grubu görüntüle (×{n})",
+    "group.keep_this_reject_rest": "Bunu tut, kalanları reddet",
+    "group.kind_duplicate": "Kopyalar",
+    "group.kind_similar": "Benzer kareler",
+    "group.members": "Bu grupta {n} fotoğraf",
+    "group.compare": "Karşılaştır",
+
+    // Compare
+    "compare.title": "Karşılaştır",
+    "compare.open": "Karşılaştır",
+    "compare.keep_this": "Bunu tut, diğerlerini reddet",
+    "compare.hint": "Yakınlaştırmak için kaydır · sürükleyerek gezin · sıfırlamak için çift tıkla · kapatmak için Esc",
+    "compare.auto_pick": "Otomatik seçim",
+    "compare.needs_selection": "Karşılaştırmak için 2-4 fotoğraf seçin",
+
+    // Filter
+    "filter.button": "Filtre",
+    "filter.title": "Filtreler",
+    "filter.scoreRange": "Puan aralığı",
+    "filter.isoRange": "ISO aralığı",
+    "filter.min": "Min",
+    "filter.max": "Maks",
+    "filter.rejectReason": "Reddetme sebebi",
+    "filter.anyReason": "Tüm sebepler",
+    "filter.mismatch": "Motorla çelişenler",
+    "filter.clear": "Temizle",
+    "filter.noMatches": "Mevcut filtrelerle eşleşen fotoğraf yok",
+    "filter.reason_blurry": "Bulanık",
+    "filter.reason_dark": "Karanlık",
+    "filter.reason_overexposed": "Aşırı pozlanmış",
+    "filter.reason_duplicate": "Kopya",
+    "filter.reason_similar": "Benzer",
+    "filter.reason_reject": "Manuel reddedilen",
+
     // Export
     "export.title": "Fotograflari Disa Aktar",
     "export.summary": "Ozet",
@@ -173,8 +249,17 @@ export function getLocale(): Locale {
   return currentLocale;
 }
 
-export function t(key: TranslationKey): string {
-  return translations[currentLocale][key] || translations.en[key] || key;
+export function t(
+  key: TranslationKey,
+  params?: Record<string, string | number>,
+): string {
+  let str: string = translations[currentLocale][key] || translations.en[key] || key;
+  if (params) {
+    for (const [name, value] of Object.entries(params)) {
+      str = str.replace(`{${name}}`, String(value));
+    }
+  }
+  return str;
 }
 
 // Initialize from localStorage
@@ -186,7 +271,7 @@ if (saved && (saved === "en" || saved === "tr")) {
 // React hook
 export function useLocale(): {
   locale: Locale;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   setLocale: (l: Locale) => void;
 } {
   useSyncExternalStore(

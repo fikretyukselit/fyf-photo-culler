@@ -10,7 +10,10 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  Columns2,
+  Filter,
   Image as ImageIcon,
+  Layers,
   Star,
   Trash2,
   X,
@@ -18,10 +21,40 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/lib/stores";
-import { usePhotosStore } from "@/lib/stores";
+import { usePhotosStore, countActiveFilters } from "@/lib/stores";
 import { useLocale } from "@/lib/i18n";
 import { api } from "@/lib/api";
-import type { Photo } from "@/lib/api";
+import type { Photo, PhotoFilterParams } from "@/lib/api";
+import { GroupPanel } from "./GroupPanel";
+import { Compare } from "./Compare";
+
+// Maps the store's PhotoFilters to the api query params.
+function filtersToParams(f: {
+  minScore: number | null;
+  maxScore: number | null;
+  minIso: number | null;
+  maxIso: number | null;
+  rejectReason: string | null;
+  mismatch: boolean;
+}): PhotoFilterParams {
+  return {
+    min_score: f.minScore,
+    max_score: f.maxScore,
+    min_iso: f.minIso,
+    max_iso: f.maxIso,
+    reject_reason: f.rejectReason,
+    mismatch: f.mismatch,
+  };
+}
+
+const REJECT_REASONS = [
+  { value: "blurry", tKey: "filter.reason_blurry" as const },
+  { value: "dark", tKey: "filter.reason_dark" as const },
+  { value: "overexposed", tKey: "filter.reason_overexposed" as const },
+  { value: "duplicate", tKey: "filter.reason_duplicate" as const },
+  { value: "similar", tKey: "filter.reason_similar" as const },
+  { value: "reject", tKey: "filter.reason_reject" as const },
+] as const;
 
 // ─── Category Tabs ───────────────────────────────────────────
 
@@ -121,6 +154,155 @@ function SortDropdown() {
   );
 }
 
+// ─── Filter Panel ────────────────────────────────────────────
+
+function numberOrNull(v: string): number | null {
+  if (v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function FilterPanel() {
+  const { filters, setFilters, clearFilters, activeCategory } = usePhotosStore();
+  const { t } = useLocale();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const activeCount = countActiveFilters(filters);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors",
+          activeCount > 0
+            ? "bg-amber-500/15 text-amber-400"
+            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+        )}
+      >
+        <Filter className="size-3.5" />
+        {t("filter.button")}
+        {activeCount > 0 && (
+          <span className="rounded-full bg-amber-500/25 px-1.5 py-0.5 text-xs tabular-nums text-amber-300">
+            {activeCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="glass absolute right-0 top-full z-20 mt-1 w-72 rounded-lg p-3">
+          {/* Score range */}
+          <div className="mb-3">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              {t("filter.scoreRange")}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder={t("filter.min")}
+                value={filters.minScore ?? ""}
+                onChange={(e) => setFilters({ minScore: numberOrNull(e.target.value) })}
+                className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
+              />
+              <span className="text-muted-foreground">–</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder={t("filter.max")}
+                value={filters.maxScore ?? ""}
+                onChange={(e) => setFilters({ maxScore: numberOrNull(e.target.value) })}
+                className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
+              />
+            </div>
+          </div>
+
+          {/* ISO range */}
+          <div className="mb-3">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              {t("filter.isoRange")}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder={t("filter.min")}
+                value={filters.minIso ?? ""}
+                onChange={(e) => setFilters({ minIso: numberOrNull(e.target.value) })}
+                className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
+              />
+              <span className="text-muted-foreground">–</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder={t("filter.max")}
+                value={filters.maxIso ?? ""}
+                onChange={(e) => setFilters({ maxIso: numberOrNull(e.target.value) })}
+                className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
+              />
+            </div>
+          </div>
+
+          {/* Reject reason (only in reject tab) */}
+          {activeCategory === "reject" && (
+            <div className="mb-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                {t("filter.rejectReason")}
+              </label>
+              <select
+                value={filters.rejectReason ?? ""}
+                onChange={(e) =>
+                  setFilters({ rejectReason: e.target.value === "" ? null : e.target.value })
+                }
+                className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
+              >
+                <option value="">{t("filter.anyReason")}</option>
+                {REJECT_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {t(r.tKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Mismatch toggle */}
+          <button
+            onClick={() => setFilters({ mismatch: !filters.mismatch })}
+            className={cn(
+              "mb-3 w-full rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              filters.mismatch
+                ? "bg-amber-500/20 text-amber-300"
+                : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+            )}
+          >
+            {t("filter.mismatch")}
+          </button>
+
+          {/* Clear */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-xs"
+            onClick={clearFilters}
+            disabled={activeCount === 0}
+          >
+            {t("filter.clear")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Photo Card ──────────────────────────────────────────────
 
 interface PhotoCardProps {
@@ -129,9 +311,11 @@ interface PhotoCardProps {
   isFocused: boolean;
   onSelect: (e: React.MouseEvent) => void;
   onClick: () => void;
+  onOpenGroup: (groupId: string) => void;
 }
 
-function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick }: PhotoCardProps) {
+function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick, onOpenGroup }: PhotoCardProps) {
+  const { t } = useLocale();
   const score = photo.quality_score ?? 0;
   const scoreColor =
     score >= 70 ? "bg-green-500" : score >= 40 ? "bg-amber-500" : "bg-red-500";
@@ -141,55 +325,80 @@ function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick }: PhotoCar
       : photo.destination === "maybe"
         ? "border-l-amber-500"
         : "border-l-red-500";
+  const inGroup = photo.group_id != null && (photo.group_size ?? 0) > 1;
 
   return (
-    <div
-      className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-xl border border-foreground/5 bg-foreground/[0.03] transition-all duration-200",
-        "border-l-[3px]",
-        borderColor,
-        isSelected && "ring-2 ring-amber-400/50",
-        isFocused && "ring-2 ring-foreground/30",
-        "hover:scale-[1.02] hover:border-foreground/15 hover:shadow-lg hover:shadow-foreground/5"
+    <div className="relative">
+      {/* Stacked-layer effect behind grouped cards */}
+      {inGroup && (
+        <>
+          <div className="pointer-events-none absolute inset-0 translate-x-1 translate-y-1 rounded-xl border border-foreground/5 bg-foreground/[0.03]" />
+          <div className="pointer-events-none absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-xl border border-foreground/5 bg-foreground/[0.04]" />
+        </>
       )}
-      onClick={onClick}
-    >
-      {/* Thumbnail */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-foreground/5">
-        <img
-          src={api.thumbnailUrl(photo.id)}
-          alt={photo.filename}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
-        {/* Score badge */}
-        <div
-          className={cn(
-            "absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums text-white",
-            scoreColor
+      <div
+        className={cn(
+          "group relative cursor-pointer overflow-hidden rounded-xl border border-foreground/5 bg-foreground/[0.03] transition-all duration-200",
+          "border-l-[3px]",
+          borderColor,
+          isSelected && "ring-2 ring-amber-400/50",
+          isFocused && "ring-2 ring-foreground/30",
+          "hover:scale-[1.02] hover:border-foreground/15 hover:shadow-lg hover:shadow-foreground/5"
+        )}
+        onClick={onClick}
+      >
+        {/* Thumbnail */}
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-foreground/5">
+          <img
+            src={api.thumbnailUrl(photo.id)}
+            alt={photo.filename}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+          {/* Score badge */}
+          <div
+            className={cn(
+              "absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums text-white",
+              scoreColor
+            )}
+          >
+            {Math.round(score)}
+          </div>
+          {/* Group badge */}
+          {inGroup && (
+            <button
+              type="button"
+              title={t("group.badge_tooltip")}
+              className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenGroup(photo.group_id!);
+              }}
+            >
+              <Layers className="size-3" />
+              ×{photo.group_size}
+            </button>
           )}
-        >
-          {Math.round(score)}
+          {/* Selection checkbox */}
+          <div
+            className={cn(
+              "absolute left-2 top-2 flex size-5 items-center justify-center rounded border transition-all",
+              isSelected
+                ? "border-amber-400 bg-amber-400 text-black"
+                : "border-foreground/30 bg-background/40 opacity-0 group-hover:opacity-100"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(e);
+            }}
+          >
+            {isSelected && <Check className="size-3" />}
+          </div>
         </div>
-        {/* Selection checkbox */}
-        <div
-          className={cn(
-            "absolute left-2 top-2 flex size-5 items-center justify-center rounded border transition-all",
-            isSelected
-              ? "border-amber-400 bg-amber-400 text-black"
-              : "border-foreground/30 bg-background/40 opacity-0 group-hover:opacity-100"
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(e);
-          }}
-        >
-          {isSelected && <Check className="size-3" />}
+        {/* Filename */}
+        <div className="px-2 py-1.5">
+          <p className="truncate text-xs text-muted-foreground">{photo.filename}</p>
         </div>
-      </div>
-      {/* Filename */}
-      <div className="px-2 py-1.5">
-        <p className="truncate text-xs text-muted-foreground">{photo.filename}</p>
       </div>
     </div>
   );
@@ -198,7 +407,7 @@ function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick }: PhotoCar
 // ─── Photo Detail Panel ──────────────────────────────────────
 
 function PhotoDetail() {
-  const { detailPhoto, setDetailPhoto } = usePhotosStore();
+  const { detailPhoto, setDetailPhoto, setActiveGroupId } = usePhotosStore();
   const { t } = useLocale();
   const [isFullscreen, setFullscreen] = useState(false);
 
@@ -309,6 +518,19 @@ function PhotoDetail() {
           <p className="font-medium">{photo.filename}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{photo.path}</p>
         </div>
+
+        {/* Group link */}
+        {photo.group_id != null && (photo.group_size ?? 0) > 1 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5 text-xs"
+            onClick={() => setActiveGroupId(photo.group_id!)}
+          >
+            <Layers className="size-3.5" />
+            {t("group.view", { n: photo.group_size! })}
+          </Button>
+        )}
 
         {/* Quality score */}
         <div className="flex items-center gap-3">
@@ -445,11 +667,13 @@ function PhotoDetail() {
 // ─── Multi-select Actions Bar ────────────────────────────────
 
 function SelectionBar() {
-  const { selectedIds, clearSelection, setSummary } = usePhotosStore();
+  const { selectedIds, clearSelection, setSummary, setComparePhotos } = usePhotosStore();
   const { t } = useLocale();
   const count = selectedIds.size;
 
   if (count === 0) return null;
+
+  const canCompare = count >= 2 && count <= 4;
 
   async function handleBatchMove(dest: string) {
     const ids = Array.from(selectedIds);
@@ -463,11 +687,29 @@ function SelectionBar() {
     clearSelection();
   }
 
+  function handleCompare() {
+    const store = usePhotosStore.getState();
+    const selected = store.photos.filter((p) => store.selectedIds.has(p.id));
+    if (selected.length >= 2 && selected.length <= 4) {
+      setComparePhotos(selected);
+    }
+  }
+
   return (
     <div className="glass flex items-center gap-3 border-t border-white/10 px-4 py-2">
       <span className="text-sm font-medium text-white/70">
         {count} {t("review.selected")}
       </span>
+      {canCompare && (
+        <Button
+          size="xs"
+          className="gap-1 bg-foreground/10 text-foreground hover:bg-foreground/20"
+          onClick={handleCompare}
+        >
+          <Columns2 className="size-3" />
+          {t("compare.open")}
+        </Button>
+      )}
       <div className="flex gap-1.5">
         <Button
           size="xs"
@@ -512,15 +754,33 @@ const COL_WIDTH = 200;
 const ROW_HEIGHT = 240;
 const GAP = 12;
 
+const REJECT_DESTINATIONS = new Set([
+  "reject",
+  "blurry",
+  "dark",
+  "overexposed",
+  "duplicate",
+  "similar",
+]);
+
+// Mirror of the backend's _category_matches so client-side sorting keeps the
+// exact set the server returned (reject sub-types belong to the reject tab).
+function categoryMatches(destination: string, category: string): boolean {
+  if (category === "reject") return REJECT_DESTINATIONS.has(destination);
+  return destination === category;
+}
+
 function PhotoGrid() {
   const {
     photos,
     activeCategory,
     selectedIds,
     sortBy,
+    filters,
     toggleSelect,
     selectRange,
     setDetailPhoto,
+    setActiveGroupId,
     setPhotos,
   } = usePhotosStore();
   const { t } = useLocale();
@@ -533,9 +793,10 @@ function PhotoGrid() {
   const lastClickedIdx = useRef<number>(-1);
   const [focusIdx, setFocusIdx] = useState(-1);
 
-  // Filter and sort photos
+  // Filter and sort photos. The server already applied category + filters;
+  // we only re-check the category here (reject sub-types included) and sort.
   const filteredPhotos = useMemo(() => {
-    let filtered = photos.filter((p) => p.destination === activeCategory);
+    let filtered = photos.filter((p) => categoryMatches(p.destination, activeCategory));
     if (sortBy === "quality_score") {
       filtered = [...filtered].sort(
         (a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0)
@@ -587,12 +848,12 @@ function PhotoGrid() {
   const loadPhotos = useCallback(async (p: number) => {
     setLoading(true);
     try {
-      const cat = usePhotosStore.getState().activeCategory;
-      const res = await api.getPhotos(cat, p, 100);
+      const store = usePhotosStore.getState();
+      const cat = store.activeCategory;
+      const res = await api.getPhotos(cat, p, 100, filtersToParams(store.filters));
       if (p === 1) {
         setPhotos(res.photos);
       } else {
-        const store = usePhotosStore.getState();
         const existing = new Set(store.photos.map((ph) => ph.id));
         const newPhotos = res.photos.filter((ph) => !existing.has(ph.id));
         setPhotos([...store.photos, ...newPhotos]);
@@ -605,13 +866,13 @@ function PhotoGrid() {
     setLoading(false);
   }, [setPhotos]);
 
-  // Reload on category change
+  // Reload on category or filter change (filters reset pagination to page 1).
   useEffect(() => {
     setPage(1);
     setHasMore(true);
     loadPhotos(1);
     setFocusIdx(-1);
-  }, [activeCategory, loadPhotos]);
+  }, [activeCategory, filters, loadPhotos]);
 
   const loadMore = useCallback(async () => {
     const next = page + 1;
@@ -631,7 +892,18 @@ function PhotoGrid() {
 
       const store = usePhotosStore.getState();
 
+      // Ignore grid shortcuts while an overlay (compare / group panel) is open.
+      // Those overlays handle their own keys (Escape) in the capture phase.
+      if (store.comparePhotos != null || store.activeGroupId != null) return;
+
       switch (e.key.toLowerCase()) {
+        case "c": {
+          const selected = store.photos.filter((p) => store.selectedIds.has(p.id));
+          if (selected.length >= 2 && selected.length <= 4) {
+            store.setComparePhotos(selected);
+          }
+          break;
+        }
         case "k":
           if (store.selectedIds.size > 0) {
             api.setBatchOverride(Array.from(store.selectedIds), "keep").then(() => {
@@ -706,10 +978,13 @@ function PhotoGrid() {
   }, [focusIdx, cols, virtualizer]);
 
   if (filteredPhotos.length === 0 && !loading) {
+    const filtersActive = countActiveFilters(filters) > 0;
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-white/30">
         <ImageIcon className="size-12" />
-        <p className="text-sm">{t("review.noPhotos")}</p>
+        <p className="text-sm">
+          {filtersActive ? t("filter.noMatches") : t("review.noPhotos")}
+        </p>
       </div>
     );
   }
@@ -759,6 +1034,7 @@ function PhotoGrid() {
                         setDetailPhoto(photo);
                         setFocusIdx(idx);
                       }}
+                      onOpenGroup={setActiveGroupId}
                     />
                   </div>
                 );
@@ -787,6 +1063,7 @@ export function Review() {
       <div className="glass flex items-center gap-4 border-b border-white/10 px-4 py-2">
         <CategoryTabs />
         <SortDropdown />
+        <FilterPanel />
         <div className="flex-1" />
         {selectedIds.size > 0 && (
           <span className="text-xs text-white/40">
@@ -806,6 +1083,12 @@ export function Review() {
 
       {/* Selection actions bar */}
       <SelectionBar />
+
+      {/* Group panel overlay */}
+      <GroupPanel />
+
+      {/* Compare overlay */}
+      <Compare />
 
       {/* Bottom bar */}
       <div className="flex items-center justify-end border-t border-white/10 px-4 py-2">

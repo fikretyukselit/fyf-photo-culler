@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import cv2
 import numpy as np
@@ -12,6 +12,10 @@ from culling.utils import load_and_resize
 
 logger = logging.getLogger(__name__)
 
+# Photos captured more than this many seconds apart cannot belong to the same
+# burst. Used to prune candidate pairs before the expensive hash comparison.
+BURST_TIME_WINDOW = 2.0
+
 
 def compute_phash(path: str) -> imagehash.ImageHash:
     img = Image.open(path)
@@ -19,12 +23,24 @@ def compute_phash(path: str) -> imagehash.ImageHash:
 
 
 def find_pairs(hashes: Dict[str, imagehash.ImageHash],
-               threshold: int) -> List[Tuple[str, str, int]]:
-    """Find pairs within hamming distance threshold. Returns (p1, p2, distance)."""
+               threshold: int,
+               timestamps: Optional[Dict[str, Optional[float]]] = None,
+               time_window: Optional[float] = None) -> List[Tuple[str, str, int]]:
+    """Find pairs within hamming distance threshold. Returns (p1, p2, distance).
+
+    When ``timestamps`` and ``time_window`` are both given, two photos that each
+    carry a capture timestamp and are more than ``time_window`` seconds apart are
+    skipped without comparing hashes. Photos missing a timestamp are always
+    compared, so behaviour is unchanged when timestamps are unavailable."""
     paths = list(hashes.keys())
     pairs = []
     for i in range(len(paths)):
         for j in range(i + 1, len(paths)):
+            if timestamps is not None and time_window is not None:
+                t1 = timestamps.get(paths[i])
+                t2 = timestamps.get(paths[j])
+                if t1 is not None and t2 is not None and abs(t1 - t2) > time_window:
+                    continue
             dist = hashes[paths[i]] - hashes[paths[j]]
             if dist <= threshold:
                 pairs.append((paths[i], paths[j], dist))
@@ -123,14 +139,58 @@ def select_best_from_group(group: list, analyses: Dict[str, dict]) -> str:
     return max(group, key=lambda p: (analyses[p]["quality_score"], analyses[p]["file_size"]))
 
 
+def _assemble_display_groups(
+    pairs: List[Tuple[str, str]],
+    all_paths: List[str],
+    reject: Dict[str, str],
+    analyses: Dict[str, dict],
+) -> List[dict]:
+    """Union-find over every verified pair to produce display groups.
+
+    Each photo lands in at most one group. A group's ``kind`` is "duplicate" if
+    any member was rejected as a duplicate, otherwise "similar". ``best`` is the
+    highest-scoring member that was not rejected (falling back to the overall
+    highest-scoring member). Members are ordered by descending quality score,
+    ties broken by path. Groups are ordered by their minimum member path and
+    numbered from 1."""
+    raw_groups = _build_groups(pairs, all_paths)
+
+    def sort_key(p):
+        a = analyses.get(p, {})
+        return (a.get("quality_score", 0), a.get("file_size", 0), p)
+
+    ordered = sorted(raw_groups, key=lambda g: min(g))
+    groups = []
+    for idx, group in enumerate(ordered, start=1):
+        members = sorted(group, key=sort_key, reverse=True)
+        kind = "duplicate" if any(reject.get(p) == "duplicate" for p in members) else "similar"
+        kept = [p for p in members if p not in reject]
+        best = max(kept, key=sort_key) if kept else max(members, key=sort_key)
+        groups.append({
+            "id": f"g{idx:04d}",
+            "kind": kind,
+            "members": members,
+            "best": best,
+        })
+    return groups
+
+
 def detect_duplicates_and_similar(
     paths: List[str], analyses: Dict[str, dict],
-    progress_callback=None
-) -> Tuple[Set[str], Dict[str, str]]:
+    progress_callback=None,
+    time_window: Optional[float] = BURST_TIME_WINDOW,
+) -> Tuple[Set[str], Dict[str, str], List[dict]]:
     """Two-pass detection:
       1. Exact duplicates: pHash ≤ 5, SSIM > 0.95 → reject/duplicate
-      2. Burst/similar:    pHash ≤ 15, SSIM > 0.75 → reject/similar (best kept)
-    Returns (keep_set, reject_dict mapping path -> 'duplicate' or 'similar')
+      2. Burst/similar:    pHash ≤ 20, ORB feature match > 0.25 → reject/similar (best kept)
+
+    When photos carry a capture timestamp (``analyses[p]["datetime_original"]``)
+    candidate pairs more than ``time_window`` seconds apart are pruned before
+    comparison. Pass ``time_window=None`` to disable this pruning.
+
+    Returns (keep_set, reject_dict mapping path -> 'duplicate'|'similar',
+    display_groups). Display groups union both passes so each photo appears in
+    at most one group; see ``_assemble_display_groups`` for their shape.
     """
     logger.info("Computing perceptual hashes...")
     hashes = {}
@@ -142,17 +202,22 @@ def detect_duplicates_and_similar(
         if progress_callback:
             progress_callback("hashing", i + 1, len(paths))
 
+    timestamps = {p: analyses[p].get("datetime_original") for p in paths if p in analyses}
+
     reject = {}
+    verified_pairs: List[Tuple[str, str]] = []
 
     # Pass 1: Exact duplicates
     logger.info("Pass 1: Finding exact duplicates (pHash ≤ 5, SSIM > 0.95)...")
-    exact_candidates = find_pairs(hashes, threshold=5)
+    exact_candidates = find_pairs(hashes, threshold=5,
+                                  timestamps=timestamps, time_window=time_window)
     logger.info(f"  {len(exact_candidates)} candidate pairs")
     if exact_candidates:
         exact_verified = verify_ssim(exact_candidates, threshold=0.95,
                                      progress_callback=progress_callback)
         logger.info(f"  {len(exact_verified)} confirmed duplicates")
         if exact_verified:
+            verified_pairs.extend(exact_verified)
             groups = _build_groups(exact_verified, list(hashes.keys()))
             for group in groups:
                 best = select_best_from_group(list(group), analyses)
@@ -165,13 +230,15 @@ def detect_duplicates_and_similar(
     remaining_hashes = {p: hashes[p] for p in remaining if p in hashes}
 
     logger.info("Pass 2: Finding burst/similar shots (pHash ≤ 20, feature match)...")
-    similar_candidates = find_pairs(remaining_hashes, threshold=20)
+    similar_candidates = find_pairs(remaining_hashes, threshold=20,
+                                    timestamps=timestamps, time_window=time_window)
     logger.info(f"  {len(similar_candidates)} candidate pairs")
     if similar_candidates:
         similar_verified = verify_feature_match(similar_candidates, min_match_ratio=0.25,
                                                 progress_callback=progress_callback)
         logger.info(f"  {len(similar_verified)} confirmed similar pairs")
         if similar_verified:
+            verified_pairs.extend(similar_verified)
             groups = _build_groups(similar_verified, remaining)
             for group in groups:
                 best = select_best_from_group(list(group), analyses)
@@ -179,6 +246,8 @@ def detect_duplicates_and_similar(
                     if p != best:
                         reject[p] = "similar"
 
+    display_groups = _assemble_display_groups(verified_pairs, list(paths), reject, analyses)
+
     keep = set(paths) - set(reject.keys())
     logger.info(f"Result: {len(keep)} keep, {sum(1 for v in reject.values() if v == 'duplicate')} duplicates, {sum(1 for v in reject.values() if v == 'similar')} similar")
-    return keep, reject
+    return keep, reject, display_groups

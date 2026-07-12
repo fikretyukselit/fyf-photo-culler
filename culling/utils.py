@@ -1,3 +1,4 @@
+import datetime
 import os
 import logging
 import shutil
@@ -32,9 +33,11 @@ def load_and_resize(path: str, max_edge: int = 1024) -> Optional[np.ndarray]:
 
 
 def extract_exif(path: str) -> dict:
-    """Extract ISO and shutter speed from EXIF data.
-    Returns dict with 'iso' and 'shutter_speed' keys (None if missing)."""
-    result = {"iso": None, "shutter_speed": None}
+    """Extract ISO, shutter speed and capture timestamp from EXIF data.
+    Returns dict with 'iso', 'shutter_speed' and 'datetime_original' keys
+    (None if missing). 'datetime_original' is a Unix timestamp (float),
+    including sub-second precision when the camera records it."""
+    result = {"iso": None, "shutter_speed": None, "datetime_original": None}
     try:
         with Image.open(path) as img:
             exif_data = img._getexif()
@@ -51,6 +54,20 @@ def extract_exif(path: str) -> dict:
                     result["shutter_speed"] = val.numerator / val.denominator
                 else:
                     result["shutter_speed"] = float(val)
+            dt_tag = tag_map.get("DateTimeOriginal")
+            if dt_tag and dt_tag in exif_data:
+                try:
+                    ts = datetime.datetime.strptime(
+                        str(exif_data[dt_tag]).strip(), "%Y:%m:%d %H:%M:%S"
+                    ).timestamp()
+                    subsec_tag = tag_map.get("SubsecTimeOriginal")
+                    if subsec_tag and subsec_tag in exif_data:
+                        sub = str(exif_data[subsec_tag]).strip()
+                        if sub.isdigit():
+                            ts += int(sub) / (10 ** len(sub))
+                    result["datetime_original"] = ts
+                except (ValueError, TypeError):
+                    pass
     except Exception as e:
         logger.warning(f"Error reading EXIF from {path}: {e}")
     return result

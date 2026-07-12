@@ -8,6 +8,10 @@ from backend.state import state
 
 router = APIRouter()
 
+VALID_DESTINATIONS = {
+    "keep", "maybe", "reject", "blurry", "dark", "overexposed", "duplicate", "similar",
+}
+
 
 def _decode_id(photo_id: str) -> str:
     return base64.urlsafe_b64decode(photo_id.encode()).decode()
@@ -37,8 +41,7 @@ def set_override(req: OverrideRequest):
     if path not in state.analyses:
         raise HTTPException(status_code=404, detail="Photo not found")
 
-    valid_destinations = {"keep", "maybe", "blurry", "dark", "overexposed", "duplicate", "similar"}
-    if req.destination not in valid_destinations:
+    if req.destination not in VALID_DESTINATIONS:
         raise HTTPException(status_code=400, detail=f"Invalid destination: {req.destination}")
 
     with state.lock:
@@ -48,8 +51,7 @@ def set_override(req: OverrideRequest):
 
 @router.post("/api/override/batch")
 def set_batch_override(req: BatchOverrideRequest):
-    valid_destinations = {"keep", "maybe", "blurry", "dark", "overexposed", "duplicate", "similar"}
-    if req.destination not in valid_destinations:
+    if req.destination not in VALID_DESTINATIONS:
         raise HTTPException(status_code=400, detail=f"Invalid destination: {req.destination}")
 
     paths = []
