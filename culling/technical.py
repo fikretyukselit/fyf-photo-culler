@@ -6,7 +6,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from culling.utils import load_and_resize, extract_exif
+from culling.utils import load_and_resize, extract_exif, save_derivatives_from_image
 
 logger = logging.getLogger(__name__)
 
@@ -134,11 +134,26 @@ def _get_aperture(path: str) -> Optional[float]:
     return None
 
 
-def analyze_photo(path: str, blur_threshold: float = BLUR_THRESHOLD) -> Optional[dict]:
-    """Full technical analysis of a single photo."""
+def analyze_photo(
+    path: str,
+    blur_threshold: float = BLUR_THRESHOLD,
+    thumbnail_dir: Optional[str] = None,
+) -> Optional[dict]:
+    """Full technical analysis of a single photo.
+
+    When ``thumbnail_dir`` is given, the grid thumbnail and detail preview are
+    written from the image decoded here — the review UI then never has to
+    decode full-resolution files on demand."""
     img = load_and_resize(path, max_edge=1024)
     if img is None:
         return None
+
+    if thumbnail_dir:
+        try:
+            save_derivatives_from_image(img, path, thumbnail_dir)
+        except Exception as e:
+            # Derivatives are an optimization; never fail analysis over them.
+            logger.warning(f"Could not write derivatives for {path}: {e}")
 
     sharpness_raw = compute_sharpness(img)
     exposure = compute_exposure(img)

@@ -74,7 +74,10 @@ def _analyze_files_parallel(all_files):
     executor = ThreadPoolExecutor(max_workers=workers)
     try:
         future_to_path = {
-            executor.submit(analyze_photo, path): path for path in all_files
+            executor.submit(
+                analyze_photo, path, thumbnail_dir=state.thumbnail_cache_dir
+            ): path
+            for path in all_files
         }
         done = 0
         for future in as_completed(future_to_path):
