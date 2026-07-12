@@ -31,6 +31,9 @@ export function Export() {
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Absolute output dir as reported by the backend on completion — the
+  // session's outputDir may be empty (backend then defaults it).
+  const [exportedDir, setExportedDir] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   // Load export preview
@@ -53,6 +56,7 @@ export function Export() {
 
         if (data.stage === "complete") {
           es.close();
+          if (data.output_dir) setExportedDir(data.output_dir);
           setState("complete");
         } else if (data.stage === "error") {
           es.close();
@@ -72,16 +76,15 @@ export function Export() {
   }
 
   async function handleOpenFolder() {
+    // Prefer the absolute path the backend actually exported to; the openPath
+    // fallback is gone — it isn't covered by opener:default and always failed.
+    const dir = exportedDir || outputDir;
+    if (!dir) return;
     try {
       const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
-      await revealItemInDir(outputDir || "./output");
-    } catch {
-      try {
-        const { openPath } = await import("@tauri-apps/plugin-opener");
-        await openPath(outputDir || "./output");
-      } catch {
-        // ignore
-      }
+      await revealItemInDir(dir);
+    } catch (e) {
+      console.error("Failed to reveal output folder:", e);
     }
   }
 
@@ -118,6 +121,11 @@ export function Export() {
               <p className="text-sm text-muted-foreground">
                 {t("export.completeDesc")}
               </p>
+              {exportedDir && (
+                <p className="max-w-full truncate rounded-md bg-foreground/5 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
+                  {exportedDir}
+                </p>
+              )}
             </div>
             <div className="flex gap-3">
               <Button
