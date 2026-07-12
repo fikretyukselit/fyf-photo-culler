@@ -12,8 +12,8 @@ const translations = {
     "landing.mergeMode": "Merge all into single output",
     "landing.startCulling": "Start Culling",
     "landing.starting": "Starting...",
-    "landing.onlyJpgSupported": "Warning: Only JPG/JPEG photos are supported. Other files in the folder will be ignored.",
-    "landing.noJpgFound": "No JPG photos found in the selected folders.",
+    "landing.onlyJpgSupported": "Warning: {n} unsupported image file(s) (RAW, PNG, HEIC…) will be skipped — only JPG/JPEG is analyzed. Continue?",
+    "landing.noJpgFound": "No JPG photos found in the selected folders (subfolders are searched too).",
 
     // Processing
     "processing.title": "Analyzing Photos...",
@@ -116,6 +116,12 @@ const translations = {
     "update.install": "Update Now",
     "update.later": "Later",
     "update.downloading": "Downloading update...",
+
+    // Backend connection
+    "backend.connecting": "Connecting to the analysis engine...",
+    "backend.errorTitle": "Couldn't reach the analysis engine",
+    "backend.errorHint": "The background process didn't start in time. This can happen if the port is in use or another copy of the app is running. Try again, or restart the app.",
+    "backend.retry": "Retry",
   },
   tr: {
     // Landing
@@ -126,8 +132,8 @@ const translations = {
     "landing.mergeMode": "Tumunu tek output'a birlestir",
     "landing.startCulling": "Elemeye Basla",
     "landing.starting": "Baslatiliyor...",
-    "landing.onlyJpgSupported": "Uyarı: Sadece JPG/JPEG fotoğrafları desteklenmektedir. Diğer dosyalar göz ardı edilecektir.",
-    "landing.noJpgFound": "Seçilen klasörlerde hiç JPG fotoğraf bulunamadı.",
+    "landing.onlyJpgSupported": "Uyarı: {n} desteklenmeyen görüntü dosyası (RAW, PNG, HEIC…) atlanacak — yalnızca JPG/JPEG analiz edilir. Devam edilsin mi?",
+    "landing.noJpgFound": "Seçilen klasörlerde hiç JPG fotoğraf bulunamadı (alt klasörler de tarandı).",
 
     // Processing
     "processing.title": "Fotograflar Analiz Ediliyor...",
@@ -231,6 +237,12 @@ const translations = {
     "update.install": "Güncelle",
     "update.later": "Sonra",
     "update.downloading": "Güncelleme indiriliyor...",
+
+    // Backend connection
+    "backend.connecting": "Analiz motoruna bağlanılıyor...",
+    "backend.errorTitle": "Analiz motoruna ulaşılamadı",
+    "backend.errorHint": "Arka plan süreci zamanında başlamadı. Port kullanımdaysa veya uygulamanın başka bir kopyası açıksa bu olabilir. Tekrar deneyin ya da uygulamayı yeniden başlatın.",
+    "backend.retry": "Tekrar Dene",
   },
 } as const;
 

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from culling.technical import analyze_photo
 from culling.duplicates import detect_duplicates_and_similar
-from culling.utils import list_jpeg_files_multi
+from culling.utils import list_jpeg_files_multi, count_scannable
 from backend.state import state
 
 router = APIRouter()
@@ -25,9 +25,6 @@ class AnalyzeRequest(FolderList):
     output: str = "./output"
 
 
-JPEG_EXTENSIONS = {".jpg", ".jpeg"}
-
-
 @router.post("/api/check_folders")
 def check_folders(req: FolderList):
     jpg_count = 0
@@ -35,12 +32,9 @@ def check_folders(req: FolderList):
     for folder in req.folders:
         if not os.path.isdir(folder):
             continue
-        for entry in os.listdir(folder):
-            ext = os.path.splitext(entry)[1].lower()
-            if ext in JPEG_EXTENSIONS:
-                jpg_count += 1
-            elif os.path.isfile(os.path.join(folder, entry)):
-                other_count += 1
+        jpg, other = count_scannable(folder)
+        jpg_count += jpg
+        other_count += other
     return {"jpg_count": jpg_count, "other_count": other_count}
 
 
