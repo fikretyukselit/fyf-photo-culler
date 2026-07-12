@@ -1,6 +1,9 @@
 # 07 — Özellik Yol Haritası Önerisi
 
-> **Güncelleme (2026-07-12):** Faz 1'den F1.1 (grup yığını UI + GroupPanel), F1.2 (Compare — senkron zoom/pan), F1.4 (skor/ISO/sebep filtreleri + "motorla çelişenler") ve F1.5 (EXIF zaman penceresiyle ön-gruplama + grupların API'a taşınması) uygulandı. Ek olarak inceleme sırasında bulunan kritik bug düzeltildi: manuel reject override'ı backend'de geçersiz sayılıyordu (sessiz 400). Test suite 15 → 36'ya çıktı.
+> **Güncelleme (2026-07-12):**
+> - **Faz 1** uygulandı: F1.1 (grup yığını UI + GroupPanel), F1.2 (Compare — senkron zoom/pan), F1.4 (skor/ISO/sebep filtreleri + "motorla çelişenler"), F1.5 (EXIF zaman penceresi + grupların API'a taşınması). İnceleme sırasında bulunan kritik bug düzeltildi: manuel reject override'ı backend'de geçersiz sayılıyordu (sessiz 400).
+> - **Faz 0** (Faz 1 sonrası): F0.1 (oturum kalıcılığı + devam et), F0.2 (undo/redo), F0.3 (port keşfi tamamlandı + bağlanıyor/hata ekranları), F0.4 (recursive tarama + atlanan dosya raporu) uygulandı. **Kalan:** F0.5 (CI kalite kapısı — pytest/tsc/ruff her PR'da).
+> - Test suite 15 → 50'ye çıktı.
 
 İlke: Önce **güven** (veri kaybetme), sonra **iş akışı** (hızlı culling), sonra **zekâ** (daha iyi otomatik karar). Kullanıcı motora güvenmezse hiçbir akıllı özellik anlam taşımaz.
 
