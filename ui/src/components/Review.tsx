@@ -147,7 +147,7 @@ function SortDropdown() {
         <ChevronDown className="size-3.5" />
       </button>
       {open && (
-        <div className="glass absolute right-0 top-full z-20 mt-1 min-w-[160px] rounded-lg py-1">
+        <div className="absolute right-0 top-full z-20 mt-1 min-w-[160px] rounded-lg border border-border bg-popover py-1 shadow-xl shadow-black/40">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -213,7 +213,7 @@ function FilterPanel() {
         )}
       </button>
       {open && (
-        <div className="glass absolute right-0 top-full z-20 mt-1 w-72 rounded-lg p-3">
+        <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-lg border border-border bg-popover p-3 shadow-xl shadow-black/40">
           {/* Score range */}
           <div className="mb-3">
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
