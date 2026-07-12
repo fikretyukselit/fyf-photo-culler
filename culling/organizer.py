@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 DEST_TO_DIR = {
     "keep": "keep",
     "maybe": "maybe",
+    "reject": "reject",
     "blurry": os.path.join("reject", "blurry"),
     "dark": os.path.join("reject", "dark"),
     "overexposed": os.path.join("reject", "overexposed"),

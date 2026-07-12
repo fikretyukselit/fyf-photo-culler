@@ -184,5 +184,6 @@ def analyze_photo(path: str, blur_threshold: float = BLUR_THRESHOLD) -> Optional
         "iso": exif.get("iso"),
         "shutter_speed": exif.get("shutter_speed"),
         "aperture": aperture,
+        "datetime_original": exif.get("datetime_original"),
         "file_size": os.path.getsize(path),
     }

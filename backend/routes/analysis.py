@@ -107,11 +107,12 @@ def _run_pipeline():
                     f"{sub_stage} ({current}/{total})"
                 )
 
-            keep_set, dup_sim_rejects = detect_duplicates_and_similar(
+            keep_set, dup_sim_rejects, dup_groups = detect_duplicates_and_similar(
                 candidates, analyses, progress_callback=dup_progress
             )
         else:
             dup_sim_rejects = {}
+            dup_groups = []
 
         if state.cancel_requested:
             _update_progress("cancelled", 0, 0, "")
@@ -142,6 +143,8 @@ def _run_pipeline():
         with state.lock:
             state.analyses = analyses
             state.destinations = destinations
+            state.groups = {g["id"]: g for g in dup_groups}
+            state.path_to_group = {p: g["id"] for g in dup_groups for p in g["members"]}
             state.progress["stage"] = "complete"
             state.progress["current"] = total_files
             state.progress["total"] = total_files
@@ -168,6 +171,8 @@ def start_analysis(req: AnalyzeRequest):
         state.analyses = {}
         state.destinations = {}
         state.overrides = {}
+        state.groups = {}
+        state.path_to_group = {}
         state.progress = {
             "stage": "starting",
             "current": 0,

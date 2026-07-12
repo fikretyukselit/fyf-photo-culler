@@ -10,6 +10,8 @@ class SessionState:
     analyses: dict = field(default_factory=dict)       # path -> analysis result
     destinations: dict = field(default_factory=dict)    # path -> destination category
     overrides: dict = field(default_factory=dict)       # path -> user override category
+    groups: dict = field(default_factory=dict)          # group_id -> group dict
+    path_to_group: dict = field(default_factory=dict)   # path -> group_id
     progress: dict = field(default_factory=lambda: {
         "stage": "idle",
         "current": 0,
