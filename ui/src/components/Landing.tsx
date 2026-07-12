@@ -70,7 +70,7 @@ export function Landing() {
       }
       
       if (check.other_count > 0) {
-        const proceed = window.confirm(t("landing.onlyJpgSupported"));
+        const proceed = window.confirm(t("landing.onlyJpgSupported", { n: check.other_count }));
         if (!proceed) {
           setStarting(false);
           return;

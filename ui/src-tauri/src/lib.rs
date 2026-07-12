@@ -37,21 +37,37 @@ pub fn run() {
                         .spawn()
                         .expect("failed to spawn sidecar");
 
-                    // Read stdout to find the port, then store child
+                    // Store the child immediately so it's always tracked for
+                    // shutdown, even if the sidecar dies before printing its port.
+                    {
+                        let bs = handle.state::<Mutex<BackendState>>();
+                        let mut guard = bs.lock().unwrap();
+                        guard.process = Some(child);
+                    }
+
+                    // Read stdout to find the port; surface stderr/exit for debugging.
                     std::thread::spawn(move || {
                         use tauri_plugin_shell::process::CommandEvent;
                         while let Some(event) = rx.blocking_recv() {
-                            if let CommandEvent::Stdout(line) = event {
-                                let line = String::from_utf8_lossy(&line);
-                                if line.starts_with("BACKEND_PORT=") {
-                                    if let Ok(port) = line[13..].trim().parse::<u16>() {
-                                        let bs = handle.state::<Mutex<BackendState>>();
-                                        let mut guard = bs.lock().unwrap();
-                                        guard.port = Some(port);
-                                        guard.process = Some(child);
-                                        return;
+                            match event {
+                                CommandEvent::Stdout(line) => {
+                                    let line = String::from_utf8_lossy(&line);
+                                    if line.starts_with("BACKEND_PORT=") {
+                                        if let Ok(port) = line[13..].trim().parse::<u16>() {
+                                            let bs = handle.state::<Mutex<BackendState>>();
+                                            let mut guard = bs.lock().unwrap();
+                                            guard.port = Some(port);
+                                        }
                                     }
                                 }
+                                CommandEvent::Stderr(line) => {
+                                    eprintln!("[sidecar] {}", String::from_utf8_lossy(&line));
+                                }
+                                CommandEvent::Terminated(payload) => {
+                                    eprintln!("[sidecar] backend exited: {:?}", payload);
+                                    break;
+                                }
+                                _ => {}
                             }
                         }
                     });

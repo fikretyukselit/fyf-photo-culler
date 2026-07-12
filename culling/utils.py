@@ -11,6 +11,14 @@ from PIL.ExifTags import TAGS
 
 logger = logging.getLogger(__name__)
 
+JPEG_EXTENSIONS = {".jpg", ".jpeg"}
+# Image formats we recognise but do not (yet) analyse — used to tell the user
+# how many photos were skipped rather than silently ignoring them.
+OTHER_IMAGE_EXTENSIONS = {
+    ".png", ".heic", ".heif", ".webp", ".tif", ".tiff", ".bmp", ".gif",
+    ".cr2", ".cr3", ".nef", ".arw", ".raf", ".rw2", ".orf", ".dng", ".raw", ".sr2",
+}
+
 
 def load_and_resize(path: str, max_edge: int = 1024) -> Optional[np.ndarray]:
     """Load a JPEG and resize so the long edge equals max_edge.
@@ -74,17 +82,36 @@ def extract_exif(path: str) -> dict:
 
 
 def list_jpeg_files(directory: str) -> list:
-    """List all JPEG files in a directory (non-recursive).
-    Returns sorted list of absolute paths. Skips non-JPEG files silently."""
-    jpeg_extensions = {".jpg", ".jpeg"}
+    """Recursively list all JPEG files under a directory.
+    Returns a sorted list of absolute paths. Hidden directories (dotfiles such
+    as .thumbnails) are skipped so we never re-scan our own cache."""
     files = []
-    for entry in os.listdir(directory):
-        ext = os.path.splitext(entry)[1].lower()
-        if ext in jpeg_extensions:
-            full_path = os.path.join(directory, entry)
-            if os.path.isfile(full_path):
-                files.append(os.path.abspath(full_path))
+    for root, dirnames, filenames in os.walk(directory):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in filenames:
+            ext = os.path.splitext(name)[1].lower()
+            if ext in JPEG_EXTENSIONS:
+                full_path = os.path.join(root, name)
+                if os.path.isfile(full_path):
+                    files.append(os.path.abspath(full_path))
     return sorted(files)
+
+
+def count_scannable(directory: str) -> tuple:
+    """Recursively count JPEG files and other (unsupported) image files under a
+    directory. Returns (jpg_count, other_image_count). Non-image files and
+    hidden directories are ignored so the 'skipped' figure is meaningful."""
+    jpg = 0
+    other = 0
+    for root, dirnames, filenames in os.walk(directory):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for name in filenames:
+            ext = os.path.splitext(name)[1].lower()
+            if ext in JPEG_EXTENSIONS:
+                jpg += 1
+            elif ext in OTHER_IMAGE_EXTENSIONS:
+                other += 1
+    return jpg, other
 
 
 def safe_copy(src: str, dest_dir: str) -> str:
