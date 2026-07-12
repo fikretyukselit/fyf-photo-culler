@@ -29,6 +29,8 @@ interface SessionStore {
   backendPort: number | null;
   theme: "dark" | "light";
   locale: "en" | "tr";
+  onboardingOpen: boolean;
+  setOnboardingOpen: (open: boolean) => void;
   setScreen: (screen: Screen) => void;
   addFolder: (folder: string) => void;
   removeFolder: (index: number) => void;
@@ -47,6 +49,13 @@ export const useSessionStore = create<SessionStore>((set) => ({
   backendPort: null,
   theme: (localStorage.getItem("fyf-theme") as "dark" | "light") || "dark",
   locale: (localStorage.getItem("fyf-locale") as "en" | "tr") || "en",
+  // First launch: play the animated how-it-works tour once.
+  onboardingOpen: localStorage.getItem("fyf-onboarding-seen") !== "1",
+
+  setOnboardingOpen: (onboardingOpen) => {
+    if (!onboardingOpen) localStorage.setItem("fyf-onboarding-seen", "1");
+    set({ onboardingOpen });
+  },
 
   setScreen: (screen) => set({ screen }),
 

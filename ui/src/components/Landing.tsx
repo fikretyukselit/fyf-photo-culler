@@ -142,6 +142,12 @@ export function Landing() {
               v{appVersion}
             </span>
           )}
+          <button
+            onClick={() => useSessionStore.getState().setOnboardingOpen(true)}
+            className="mt-2 text-xs text-muted-foreground/70 underline-offset-2 transition-colors hover:text-amber-400 hover:underline"
+          >
+            {t("onboarding.replay")}
+          </button>
         </div>
 
         {/* Resume previous session */}
