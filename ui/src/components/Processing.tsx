@@ -213,7 +213,7 @@ export function Processing() {
                 }
                 // Scanning reports 0/0, so we never show a count for it.
                 const showCount = i > 0 && !!stageData && stageData.total > 0;
-                const barPct = isDone ? 100 : isActive ? (stageData?.pct ?? 100) : 0;
+                const barPct = isDone ? 100 : isActive ? (stageData?.pct ?? 0) : 0;
 
                 return (
                   <div key={i} className="space-y-1.5">

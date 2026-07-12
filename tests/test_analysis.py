@@ -95,10 +95,55 @@ def test_cancel_stops_and_reports_cancelled(tmp_path):
     assert skipped == []
 
 
-def test_worker_count_capped_at_eight(monkeypatch):
+def _spy_pool(monkeypatch, captured):
+    """Patch ThreadPoolExecutor to record the max_workers it was constructed with."""
+    real_pool = analysis_mod.ThreadPoolExecutor
+
+    def spy(max_workers=None, **kw):
+        captured["max_workers"] = max_workers
+        return real_pool(max_workers=max_workers, **kw)
+
+    monkeypatch.setattr(analysis_mod, "ThreadPoolExecutor", spy)
+
+
+def test_worker_count_capped_at_eight(tmp_path, monkeypatch):
     # min(8, cpu_count): a big machine still caps at 8.
-    monkeypatch.setattr(analysis_mod.os, "cpu_count", lambda: 32)
     _reset_cancel()
-    analyses, skipped, cancelled = analysis_mod._analyze_files_parallel([])
-    # Empty input is a clean no-op regardless of worker math.
-    assert analyses == {} and skipped == [] and cancelled is False
+    captured = {}
+    _spy_pool(monkeypatch, captured)
+    monkeypatch.setattr(analysis_mod.os, "cpu_count", lambda: 32)
+    analysis_mod._analyze_files_parallel([_write_jpeg(tmp_path, "w.jpg", seed=1)])
+    assert captured["max_workers"] == 8
+
+
+def test_worker_count_follows_small_cpu(tmp_path, monkeypatch):
+    # Fewer cores than the cap → use the core count.
+    _reset_cancel()
+    captured = {}
+    _spy_pool(monkeypatch, captured)
+    monkeypatch.setattr(analysis_mod.os, "cpu_count", lambda: 2)
+    analysis_mod._analyze_files_parallel([_write_jpeg(tmp_path, "w.jpg", seed=1)])
+    assert captured["max_workers"] == 2
+
+
+def test_worker_exception_lands_in_skipped(tmp_path, monkeypatch):
+    # A worker that raises (e.g. file deleted mid-run) must not abort the whole
+    # run — that one file goes to skipped, the rest still succeed.
+    _reset_cancel()
+    good = _write_jpeg(tmp_path, "ok.jpg", seed=1)
+    boom = _write_jpeg(tmp_path, "boom.jpg", seed=2)
+
+    real = analysis_mod.analyze_photo
+
+    def flaky(path, *args, **kwargs):
+        if path == boom:
+            raise RuntimeError("file vanished mid-analysis")
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(analysis_mod, "analyze_photo", flaky)
+
+    analyses, skipped, cancelled = analysis_mod._analyze_files_parallel([good, boom])
+
+    assert cancelled is False
+    assert good in analyses
+    assert boom in skipped

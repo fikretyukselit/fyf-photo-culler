@@ -57,7 +57,7 @@ def _analyze_files_parallel(all_files):
     Threads (not processes) on purpose: the production backend is a PyInstaller
     --onefile frozen binary, and multiprocessing 'spawn' would re-exec that
     binary and relaunch the server instead of running workers. OpenCV/numpy
-    release the GIL for imread/resize/Laplacian, so threads give real speedup.
+    release the GIL for decode/resize/Laplacian, so threads give real speedup.
 
     Progress is only ever written from this (the calling) thread as each future
     completes — never from a worker — keeping the progress store single-writer.
@@ -82,7 +82,12 @@ def _analyze_files_parallel(all_files):
                 return analyses, skipped, True
 
             path = future_to_path[future]
-            result = future.result()
+            try:
+                result = future.result()
+            except Exception:
+                # A single unreadable/vanished file must not abort the whole run
+                # (e.g. deleted mid-analysis → os.path.getsize raises).
+                result = None
             if result is None:
                 skipped.append(path)
             else:
