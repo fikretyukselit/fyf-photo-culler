@@ -87,6 +87,35 @@ export const useSessionStore = create<SessionStore>((set) => ({
 // ── Photos store ───────────────────────────────────────────────
 
 type SortBy = "quality_score" | "filename";
+export type Density = "s" | "m" | "l";
+
+const REJECT_DESTINATIONS = new Set([
+  "reject",
+  "blurry",
+  "dark",
+  "overexposed",
+  "duplicate",
+  "similar",
+]);
+
+/** The summary/tab category a destination belongs to. */
+export function categoryOf(destination: string): "keep" | "maybe" | "reject" {
+  if (destination === "keep" || destination === "maybe") return destination;
+  return "reject";
+}
+
+// Mirror of the backend's _category_matches so client-side filtering keeps the
+// exact set the server returned (reject sub-types belong to the reject tab).
+export function categoryMatches(destination: string, category: string): boolean {
+  if (category === "reject") return REJECT_DESTINATIONS.has(destination);
+  return destination === category;
+}
+
+/** Photos currently visible in the grid: the server's order, minus photos
+ * whose destination changed since load (optimistic triage removal). */
+export function visiblePhotos(photos: Photo[], activeCategory: string): Photo[] {
+  return photos.filter((p) => categoryMatches(p.destination, activeCategory));
+}
 
 export interface PhotoFilters {
   minScore: number | null;
@@ -121,15 +150,20 @@ interface PhotosStore {
   photos: Photo[];
   activeCategory: string;
   selectedIds: Set<string>;
-  detailPhoto: Photo | null;
+  focusIdx: number;
+  detailOpen: boolean;
+  loupeOpen: boolean;
   activeGroupId: string | null;
   comparePhotos: Photo[] | null;
   filters: PhotoFilters;
+  folderFilter: string | null;
+  density: Density;
   summary: Summary;
   sortBy: SortBy;
   canUndo: boolean;
   canRedo: boolean;
   reloadToken: number;
+  toast: string | null;
   setHistory: (h: { can_undo: boolean; can_redo: boolean }) => void;
   bumpReload: () => void;
   setPhotos: (photos: Photo[]) => void;
@@ -138,13 +172,19 @@ interface PhotosStore {
   selectRange: (startId: string, endId: string) => void;
   selectAll: () => void;
   clearSelection: () => void;
-  setDetailPhoto: (photo: Photo | null) => void;
+  setFocusIdx: (idx: number) => void;
+  setDetailOpen: (open: boolean) => void;
+  setLoupeOpen: (open: boolean) => void;
   setActiveGroupId: (groupId: string | null) => void;
   setComparePhotos: (photos: Photo[] | null) => void;
   setFilters: (patch: Partial<PhotoFilters>) => void;
   clearFilters: () => void;
+  setFolderFilter: (folder: string | null) => void;
+  setDensity: (density: Density) => void;
   setSummary: (summary: Summary) => void;
+  adjustSummary: (delta: Partial<Summary>) => void;
   setSortBy: (sort: SortBy) => void;
+  setToast: (toast: string | null) => void;
   updatePhotoDestination: (id: string, destination: string) => void;
 }
 
@@ -152,15 +192,20 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
   photos: [],
   activeCategory: "all",
   selectedIds: new Set<string>(),
-  detailPhoto: null,
+  focusIdx: -1,
+  detailOpen: false,
+  loupeOpen: false,
   activeGroupId: null,
   comparePhotos: null,
   filters: { ...EMPTY_FILTERS },
+  folderFilter: null,
+  density: (localStorage.getItem("fyf-density") as Density) || "m",
   summary: { keep: 0, maybe: 0, reject: 0, total: 0 },
   sortBy: "quality_score",
   canUndo: false,
   canRedo: false,
   reloadToken: 0,
+  toast: null,
 
   setHistory: ({ can_undo, can_redo }) => set({ canUndo: can_undo, canRedo: can_redo }),
   bumpReload: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),
@@ -171,6 +216,9 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
     set((state) => ({
       activeCategory,
       selectedIds: new Set(),
+      focusIdx: -1,
+      detailOpen: false,
+      loupeOpen: false,
       // The reject-reason filter only applies to the reject tab; drop it
       // elsewhere so it can't silently hide the whole category.
       filters:
@@ -194,9 +242,7 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
     set((state) => {
       const { photos, activeCategory } = state;
       const filtered =
-        activeCategory === "all"
-          ? photos
-          : photos.filter((p) => p.destination === activeCategory);
+        activeCategory === "all" ? photos : visiblePhotos(photos, activeCategory);
 
       const startIdx = filtered.findIndex((p) => p.id === startId);
       const endIdx = filtered.findIndex((p) => p.id === endId);
@@ -217,15 +263,17 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
     set((state) => {
       const { photos, activeCategory } = state;
       const filtered =
-        activeCategory === "all"
-          ? photos
-          : photos.filter((p) => p.destination === activeCategory);
+        activeCategory === "all" ? photos : visiblePhotos(photos, activeCategory);
       return { selectedIds: new Set(filtered.map((p) => p.id)) };
     }),
 
   clearSelection: () => set({ selectedIds: new Set() }),
 
-  setDetailPhoto: (detailPhoto) => set({ detailPhoto }),
+  setFocusIdx: (focusIdx) => set({ focusIdx }),
+
+  setDetailOpen: (detailOpen) => set({ detailOpen }),
+
+  setLoupeOpen: (loupeOpen) => set({ loupeOpen }),
 
   setActiveGroupId: (activeGroupId) => set({ activeGroupId }),
 
@@ -236,9 +284,29 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
 
   clearFilters: () => set({ filters: { ...EMPTY_FILTERS } }),
 
+  setFolderFilter: (folderFilter) =>
+    set({ folderFilter, selectedIds: new Set(), focusIdx: -1 }),
+
+  setDensity: (density) => {
+    localStorage.setItem("fyf-density", density);
+    set({ density });
+  },
+
   setSummary: (summary) => set({ summary }),
 
+  adjustSummary: (delta) =>
+    set((state) => ({
+      summary: {
+        keep: state.summary.keep + (delta.keep ?? 0),
+        maybe: state.summary.maybe + (delta.maybe ?? 0),
+        reject: state.summary.reject + (delta.reject ?? 0),
+        total: state.summary.total + (delta.total ?? 0),
+      },
+    })),
+
   setSortBy: (sortBy) => set({ sortBy }),
+
+  setToast: (toast) => set({ toast }),
 
   updatePhotoDestination: (id, destination) =>
     set((state) => ({

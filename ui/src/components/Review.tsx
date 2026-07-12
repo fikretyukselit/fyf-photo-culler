@@ -10,10 +10,15 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Columns2,
   Filter,
+  FolderOpen,
   Image as ImageIcon,
+  Keyboard,
   Layers,
+  Maximize2,
   Redo2,
   Star,
   Trash2,
@@ -23,12 +28,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/lib/stores";
-import { usePhotosStore, countActiveFilters } from "@/lib/stores";
+import {
+  usePhotosStore,
+  countActiveFilters,
+  visiblePhotos,
+  categoryOf,
+  type Density,
+} from "@/lib/stores";
 import { useLocale } from "@/lib/i18n";
 import { api } from "@/lib/api";
-import type { Photo, PhotoFilterParams } from "@/lib/api";
+import type { Photo, PhotoFilterParams, FolderInfo } from "@/lib/api";
+import { triage } from "@/lib/triage";
 import { GroupPanel } from "./GroupPanel";
 import { Compare } from "./Compare";
+import { Loupe } from "./Loupe";
 
 // Maps the store's PhotoFilters to the api query params.
 function filtersToParams(f: {
@@ -305,6 +318,95 @@ function FilterPanel() {
   );
 }
 
+// ─── Folder (SD card) chips ──────────────────────────────────
+
+function FolderChips() {
+  const { folderFilter, setFolderFilter } = usePhotosStore();
+  const { t } = useLocale();
+  const [folders, setFolders] = useState<FolderInfo[]>([]);
+
+  useEffect(() => {
+    api
+      .getFolders()
+      .then((res) => setFolders(res.folders))
+      .catch(() => setFolders([]));
+  }, []);
+
+  if (folders.length < 2) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-white/10 px-4 py-1.5">
+      <FolderOpen className="size-3.5 shrink-0 text-muted-foreground/60" />
+      <button
+        onClick={() => setFolderFilter(null)}
+        className={cn(
+          "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+          folderFilter == null
+            ? "bg-amber-500/15 text-amber-400"
+            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+        )}
+      >
+        {t("folder.all")}
+      </button>
+      {folders.map((f) => (
+        <button
+          key={f.path}
+          title={f.path}
+          onClick={() => setFolderFilter(folderFilter === f.path ? null : f.path)}
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+            folderFilter === f.path
+              ? "bg-amber-500/15 text-amber-400"
+              : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+          )}
+        >
+          {f.name}
+          <span className="rounded-full bg-foreground/10 px-1.5 text-[10px] tabular-nums">
+            {f.count}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Density toggle ──────────────────────────────────────────
+
+const DENSITIES: { key: Density; label: string }[] = [
+  { key: "s", label: "S" },
+  { key: "m", label: "M" },
+  { key: "l", label: "L" },
+];
+
+const DENSITY_COL_WIDTH: Record<Density, number> = { s: 156, m: 200, l: 264 };
+
+function DensityToggle() {
+  const { density, setDensity } = usePhotosStore();
+  const { t } = useLocale();
+
+  return (
+    <div
+      className="flex items-center rounded-lg bg-foreground/5 p-0.5"
+      title={t("review.densityTitle")}
+    >
+      {DENSITIES.map((d) => (
+        <button
+          key={d.key}
+          onClick={() => setDensity(d.key)}
+          className={cn(
+            "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+            density === d.key
+              ? "bg-foreground/15 text-foreground"
+              : "text-muted-foreground hover:text-foreground/70"
+          )}
+        >
+          {d.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Photo Card ──────────────────────────────────────────────
 
 interface PhotoCardProps {
@@ -313,18 +415,29 @@ interface PhotoCardProps {
   isFocused: boolean;
   onSelect: (e: React.MouseEvent) => void;
   onClick: () => void;
+  onDoubleClick: () => void;
   onOpenGroup: (groupId: string) => void;
 }
 
-function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick, onOpenGroup }: PhotoCardProps) {
+function PhotoCard({
+  photo,
+  isSelected,
+  isFocused,
+  onSelect,
+  onClick,
+  onDoubleClick,
+  onOpenGroup,
+}: PhotoCardProps) {
   const { t } = useLocale();
+  const [loaded, setLoaded] = useState(false);
   const score = photo.quality_score ?? 0;
   const scoreColor =
     score >= 70 ? "bg-green-500" : score >= 40 ? "bg-amber-500" : "bg-red-500";
+  const cat = categoryOf(photo.destination);
   const borderColor =
-    photo.destination === "keep"
+    cat === "keep"
       ? "border-l-green-500"
-      : photo.destination === "maybe"
+      : cat === "maybe"
         ? "border-l-amber-500"
         : "border-l-red-500";
   const inGroup = photo.group_id != null && (photo.group_size ?? 0) > 1;
@@ -344,18 +457,24 @@ function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick, onOpenGrou
           "border-l-[3px]",
           borderColor,
           isSelected && "ring-2 ring-amber-400/50",
-          isFocused && "ring-2 ring-foreground/30",
-          "hover:scale-[1.02] hover:border-foreground/15 hover:shadow-lg hover:shadow-foreground/5"
+          isFocused && "ring-2 ring-foreground/40",
+          "hover:border-foreground/15 hover:shadow-lg hover:shadow-foreground/5"
         )}
         onClick={onClick}
+        onDoubleClick={onDoubleClick}
       >
         {/* Thumbnail */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-foreground/5">
           <img
             src={api.thumbnailUrl(photo.id)}
             alt={photo.filename}
-            className="h-full w-full object-cover"
             loading="lazy"
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            className={cn(
+              "h-full w-full object-cover transition-opacity duration-200",
+              loaded ? "opacity-100" : "opacity-0"
+            )}
           />
           {/* Score badge */}
           <div
@@ -409,18 +528,29 @@ function PhotoCard({ photo, isSelected, isFocused, onSelect, onClick, onOpenGrou
 // ─── Photo Detail Panel ──────────────────────────────────────
 
 function PhotoDetail() {
-  const { detailPhoto, setDetailPhoto, setActiveGroupId } = usePhotosStore();
+  const {
+    photos,
+    activeCategory,
+    focusIdx,
+    detailOpen,
+    setDetailOpen,
+    setFocusIdx,
+    setLoupeOpen,
+    setActiveGroupId,
+    setSummary,
+    updatePhotoDestination,
+  } = usePhotosStore();
   const { t } = useLocale();
-  const [isFullscreen, setFullscreen] = useState(false);
 
-  // reset fullscreen when selecting a new photo
-  useEffect(() => {
-    setFullscreen(false);
-  }, [detailPhoto]);
+  const visible = useMemo(
+    () => visiblePhotos(photos, activeCategory),
+    [photos, activeCategory]
+  );
+  const idx = Math.min(Math.max(focusIdx, 0), visible.length - 1);
+  const photo = detailOpen && visible.length > 0 ? visible[idx] : null;
 
-  if (!detailPhoto) return null;
+  if (!photo) return null;
 
-  const photo = detailPhoto;
   const score = photo.quality_score ?? 0;
   const scoreColor =
     score >= 70 ? "text-green-400" : score >= 40 ? "text-amber-400" : "text-red-400";
@@ -432,93 +562,92 @@ function PhotoDetail() {
     { tKey: "detail.exifScore" as const, value: photo.exif_score },
   ];
 
-  async function handleOverride(dest: string) {
-    const store = usePhotosStore.getState();
-    
-    // Find next photo before updating destination (so it's still in the current category)
-    let currentPhotos = store.photos.filter((p) => p.destination === store.activeCategory);
-    if (store.sortBy === "quality_score") {
-      currentPhotos = currentPhotos.sort((a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0));
-    } else {
-      currentPhotos = currentPhotos.sort((a, b) => a.filename.localeCompare(b.filename));
-    }
-    const currentIndex = currentPhotos.findIndex((p) => p.id === photo.id);
-    let nextPhoto = null as Photo | null;
-    if (currentIndex !== -1) {
-      nextPhoto =
-        currentPhotos[currentIndex + 1] ||
-        currentPhotos[currentIndex - 1] ||
-        null;
-    }
-
-    try {
-      await api.setOverride(photo.id, dest);
-      const summaryRes = await api.getSummary();
-      store.setSummary(summaryRes);
-      store.updatePhotoDestination(photo.id, dest);
-      
-      // Always auto-advance to allow rapid curation (if a valid next photo exists)
-      setDetailPhoto(nextPhoto);
-    } catch (e) {
-      console.error("Failed to override:", e);
-    }
-  }
-
   async function handleReset() {
-    await api.resetOverride(photo.id);
-    const summaryRes = await api.getSummary();
-    usePhotosStore.getState().setSummary(summaryRes);
-    const updated = await api.getPhoto(photo.id);
-    usePhotosStore.getState().updatePhotoDestination(photo.id, updated.destination);
+    await api.resetOverride(photo!.id);
+    const [updated, summaryRes] = await Promise.all([
+      api.getPhoto(photo!.id),
+      api.getSummary(),
+    ]);
+    updatePhotoDestination(photo!.id, updated.destination);
+    setSummary(summaryRes);
   }
 
   function formatFileSize(bytes: number | null): string {
-    if (bytes == null) return "\u2014";
+    if (bytes == null) return "—";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   return (
-    <>
-      <div className="glass flex h-full w-[400px] shrink-0 flex-col overflow-y-auto border-l border-border relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h3 className="text-sm font-semibold">{t("review.photoDetails")}</h3>
+    <div className="glass relative z-10 flex h-full w-[380px] shrink-0 flex-col overflow-y-auto border-l border-border">
+      {/* Header */}
+      <div className="flex items-center gap-1 border-b border-border px-4 py-2.5">
+        <h3 className="text-sm font-semibold">{t("review.photoDetails")}</h3>
+        <span className="ml-1 text-xs tabular-nums text-muted-foreground">
+          {t("detail.position", { i: idx + 1, n: visible.length })}
+        </span>
+        <div className="ml-auto flex items-center gap-0.5">
           <button
-            onClick={() => setDetailPhoto(null)}
+            onClick={() => setFocusIdx(Math.max(idx - 1, 0))}
+            disabled={idx <= 0}
+            title={t("detail.prev")}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground disabled:opacity-30"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <button
+            onClick={() => setFocusIdx(Math.min(idx + 1, visible.length - 1))}
+            disabled={idx >= visible.length - 1}
+            title={t("detail.next")}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground disabled:opacity-30"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+          <button
+            onClick={() => setLoupeOpen(true)}
+            title={t("detail.openLoupe")}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+          >
+            <Maximize2 className="size-4" />
+          </button>
+          <button
+            onClick={() => setDetailOpen(false)}
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
           >
             <X className="size-4" />
           </button>
         </div>
+      </div>
 
-        {/* Preview */}
-        <div 
-          className="relative aspect-[4/3] w-full shrink-0 cursor-zoom-in overflow-hidden bg-foreground/5 group"
-          onClick={() => setFullscreen(true)}
-        >
-          <img
-            src={api.thumbnailUrl(photo.id)}
-            alt={photo.filename}
-            className="absolute inset-0 h-full w-full object-contain blur-md opacity-50 transition-transform duration-300 group-hover:scale-105"
-          />
-          <img
-            key={photo.id}
-            src={api.thumbnailUrl(photo.id)}
-            alt={photo.filename}
-            className="absolute inset-0 h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10 flex items-center justify-center opacity-0 group-hover:opacity-100">
-             <span className="text-white font-medium drop-shadow-md">{t("review.zoomHint")}</span>
-          </div>
+      {/* Preview — 1024px derivative, sharp enough to judge focus */}
+      <div
+        className="group relative aspect-[4/3] w-full shrink-0 cursor-zoom-in overflow-hidden bg-black/40"
+        onClick={() => setLoupeOpen(true)}
+      >
+        <img
+          key={photo.id}
+          src={api.previewUrl(photo.id)}
+          alt={photo.filename}
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-200 group-hover:bg-black/20 group-hover:opacity-100">
+          <span className="font-medium text-white drop-shadow-md">{t("review.zoomHint")}</span>
         </div>
+      </div>
 
       <div className="flex-1 space-y-4 p-4">
         {/* File info */}
         <div>
           <p className="font-medium">{photo.filename}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{photo.path}</p>
+          {photo.folder && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/70">
+              <FolderOpen className="size-3" />
+              {photo.folder.split("/").pop()}
+            </p>
+          )}
         </div>
 
         {/* Group link */}
@@ -559,7 +688,7 @@ function PhotoDetail() {
                 <div className="h-1.5 overflow-hidden rounded-full bg-foreground/5">
                   <div
                     className={cn("h-full rounded-full transition-all", barColor)}
-                    style={{ width: `${val}%` }}
+                    style={{ width: `${Math.min(100, val)}%` }}
                   />
                 </div>
               </div>
@@ -571,16 +700,16 @@ function PhotoDetail() {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="rounded-lg bg-white/5 px-2.5 py-2">
             <span className="text-white/40">ISO</span>
-            <p className="font-medium tabular-nums">{photo.iso ?? "\u2014"}</p>
+            <p className="font-medium tabular-nums">{photo.iso ?? "—"}</p>
           </div>
           <div className="rounded-lg bg-white/5 px-2.5 py-2">
             <span className="text-white/40">Shutter</span>
-            <p className="font-medium tabular-nums">{photo.shutter_speed ?? "\u2014"}</p>
+            <p className="font-medium tabular-nums">{photo.shutter_speed ?? "—"}</p>
           </div>
           <div className="rounded-lg bg-white/5 px-2.5 py-2">
             <span className="text-white/40">Aperture</span>
             <p className="font-medium tabular-nums">
-              {photo.aperture != null ? `f/${photo.aperture}` : "\u2014"}
+              {photo.aperture != null ? `f/${photo.aperture}` : "—"}
             </p>
           </div>
           <div className="rounded-lg bg-white/5 px-2.5 py-2">
@@ -591,13 +720,14 @@ function PhotoDetail() {
           </div>
         </div>
 
-        {/* Override buttons */}
+        {/* Override buttons — optimistic; focus stays put so the next photo
+            slides into the panel automatically */}
         <div className="space-y-2">
           <div className="flex gap-2">
             <Button
               size="sm"
               className="flex-1 gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25"
-              onClick={() => handleOverride("keep")}
+              onClick={() => triage([photo.id], "keep")}
             >
               <Check className="size-3.5" />
               {t("review.keep")}
@@ -605,7 +735,7 @@ function PhotoDetail() {
             <Button
               size="sm"
               className="flex-1 gap-1.5 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25"
-              onClick={() => handleOverride("maybe")}
+              onClick={() => triage([photo.id], "maybe")}
             >
               <Star className="size-3.5" />
               {t("review.maybe")}
@@ -613,7 +743,7 @@ function PhotoDetail() {
             <Button
               size="sm"
               className="flex-1 gap-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25"
-              onClick={() => handleOverride("reject")}
+              onClick={() => triage([photo.id], "reject")}
             >
               <Trash2 className="size-3.5" />
               {t("review.reject")}
@@ -630,46 +760,13 @@ function PhotoDetail() {
         </div>
       </div>
     </div>
-      
-    {/* Fullscreen Overlay */}
-      {isFullscreen && (
-        <div
-          className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/95 p-8 backdrop-blur-sm"
-          onClick={() => setFullscreen(false)}
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              event.preventDefault();
-              setFullscreen(false);
-            }
-          }}
-        >
-          {/* Close button top right */}
-          <button
-            type="button"
-            aria-label="Close fullscreen view"
-            onClick={() => setFullscreen(false)}
-            className="absolute right-6 top-6 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
-          >
-            <X className="size-6" />
-          </button>
-          
-          <img
-            src={api.fullUrl(photo.id)}
-            alt={photo.filename}
-            className="h-full w-full object-contain drop-shadow-2xl animate-in zoom-in duration-200"
-          />
-        </div>
-      )}
-    </>
   );
 }
 
 // ─── Multi-select Actions Bar ────────────────────────────────
 
 function SelectionBar() {
-  const { selectedIds, clearSelection, setSummary, setComparePhotos } = usePhotosStore();
+  const { selectedIds, clearSelection, setComparePhotos } = usePhotosStore();
   const { t } = useLocale();
   const count = selectedIds.size;
 
@@ -678,14 +775,7 @@ function SelectionBar() {
   const canCompare = count >= 2 && count <= 4;
 
   async function handleBatchMove(dest: string) {
-    const ids = Array.from(selectedIds);
-    await api.setBatchOverride(ids, dest);
-    const summaryRes = await api.getSummary();
-    setSummary(summaryRes);
-    const store = usePhotosStore.getState();
-    for (const id of ids) {
-      store.updatePhotoDestination(id, dest);
-    }
+    await triage(Array.from(selectedIds), dest);
     clearSelection();
   }
 
@@ -750,27 +840,111 @@ function SelectionBar() {
   );
 }
 
+// ─── Shortcuts help overlay ──────────────────────────────────
+
+function ShortcutsHelp() {
+  const [open, setOpen] = useState(false);
+  const { t } = useLocale();
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
+      if (!open) {
+        if (e.key === "?") {
+          e.preventDefault();
+          setOpen(true);
+        }
+        return;
+      }
+      // While open, swallow everything; Esc or ? closes.
+      e.stopPropagation();
+      if (e.key === "Escape" || e.key === "?") {
+        e.preventDefault();
+        setOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKey, true);
+    return () => window.removeEventListener("keydown", handleKey, true);
+  }, [open]);
+
+  const rows: { keys: string; tKey: Parameters<typeof t>[0] }[] = [
+    { keys: "← → ↑ ↓", tKey: "shortcuts.navigate" },
+    { keys: "K / M / R", tKey: "shortcuts.triage" },
+    { keys: "Enter", tKey: "shortcuts.loupe" },
+    { keys: "Space", tKey: "shortcuts.select" },
+    { keys: "A", tKey: "shortcuts.selectAll" },
+    { keys: "C", tKey: "shortcuts.compare" },
+    { keys: "Z", tKey: "shortcuts.zoom" },
+    { keys: "⌘Z / ⌘⇧Z", tKey: "shortcuts.undoRedo" },
+    { keys: "Esc", tKey: "shortcuts.close" },
+  ];
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground/70"
+      >
+        <Keyboard className="size-3.5" />
+        {t("shortcuts.hint")}
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 z-[105] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="glass w-full max-w-sm rounded-2xl border border-white/10 p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center gap-2">
+              <Keyboard className="size-4 text-amber-400" />
+              <h3 className="text-sm font-semibold">{t("shortcuts.title")}</h3>
+              <button
+                onClick={() => setOpen(false)}
+                className="ml-auto rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {rows.map((row) => (
+                <div key={row.keys} className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">{t(row.tKey)}</span>
+                  <kbd className="shrink-0 rounded-md bg-foreground/10 px-2 py-0.5 text-xs font-medium tabular-nums">
+                    {row.keys}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Toast ───────────────────────────────────────────────────
+
+function Toast() {
+  const { toast } = usePhotosStore();
+  if (!toast) return null;
+  return (
+    <div className="pointer-events-none fixed bottom-16 left-1/2 z-[110] -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg">
+      {toast}
+    </div>
+  );
+}
+
 // ─── Photo Grid (virtualized) ────────────────────────────────
 
-const COL_WIDTH = 200;
-const ROW_HEIGHT = 240;
 const GAP = 12;
-
-const REJECT_DESTINATIONS = new Set([
-  "reject",
-  "blurry",
-  "dark",
-  "overexposed",
-  "duplicate",
-  "similar",
-]);
-
-// Mirror of the backend's _category_matches so client-side sorting keeps the
-// exact set the server returned (reject sub-types belong to the reject tab).
-function categoryMatches(destination: string, category: string): boolean {
-  if (category === "reject") return REJECT_DESTINATIONS.has(destination);
-  return destination === category;
-}
+const PAGE_SIZE = 200;
+const CARD_CAPTION_HEIGHT = 30;
 
 function PhotoGrid() {
   const {
@@ -779,10 +953,15 @@ function PhotoGrid() {
     selectedIds,
     sortBy,
     filters,
+    folderFilter,
+    density,
     reloadToken,
+    focusIdx,
     toggleSelect,
     selectRange,
-    setDetailPhoto,
+    setFocusIdx,
+    setDetailOpen,
+    setLoupeOpen,
     setActiveGroupId,
     setPhotos,
   } = usePhotosStore();
@@ -794,66 +973,59 @@ function PhotoGrid() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const lastClickedIdx = useRef<number>(-1);
-  const [focusIdx, setFocusIdx] = useState(-1);
 
-  // Filter and sort photos. The server already applied category + filters;
-  // we only re-check the category here (reject sub-types included) and sort.
-  const filteredPhotos = useMemo(() => {
-    let filtered = photos.filter((p) => categoryMatches(p.destination, activeCategory));
-    if (sortBy === "quality_score") {
-      filtered = [...filtered].sort(
-        (a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0)
-      );
-    } else {
-      filtered = [...filtered].sort((a, b) =>
-        a.filename.localeCompare(b.filename)
-      );
-    }
-    return filtered;
-  }, [photos, activeCategory, sortBy]);
+  const colWidth = DENSITY_COL_WIDTH[density];
+  const rowHeight = Math.round(colWidth * 0.75) + CARD_CAPTION_HEIGHT;
 
-  // Responsive columns
+  // The server already applied category + filters + sort; we only re-check the
+  // category so optimistically-triaged photos drop out immediately.
+  const filteredPhotos = useMemo(
+    () => visiblePhotos(photos, activeCategory),
+    [photos, activeCategory]
+  );
+
+  // Responsive columns. The skeleton/empty branches render without the
+  // container ref, so re-attach when the grid branch (with photos) mounts.
+  const hasPhotos = filteredPhotos.length > 0;
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const w = entries[0].contentRect.width;
-      setCols(Math.max(1, Math.floor((w + GAP) / (COL_WIDTH + GAP))));
+      setCols(Math.max(1, Math.floor((w + GAP) / (colWidth + GAP))));
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [colWidth, hasPhotos]);
 
   const rowCount = Math.ceil(filteredPhotos.length / cols);
 
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => ROW_HEIGHT + GAP,
-    overscan: 3,
+    estimateSize: () => rowHeight + GAP,
+    overscan: 4,
   });
 
-  // Load more when scrolling near bottom
+  // Re-measure when the density (row height) changes.
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el || !hasMore) return;
-    function handleScroll() {
-      if (!el) return;
-      const threshold = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (threshold < 400 && !loading && hasMore) {
-        loadMore();
-      }
-    }
-    el.addEventListener("scroll", handleScroll);
-    return () => el.removeEventListener("scroll", handleScroll);
-  });
+    virtualizer.measure();
+  }, [rowHeight, virtualizer]);
 
   const loadPhotos = useCallback(async (p: number) => {
     setLoading(true);
     try {
       const store = usePhotosStore.getState();
-      const cat = store.activeCategory;
-      const res = await api.getPhotos(cat, p, 100, filtersToParams(store.filters));
+      const res = await api.getPhotos(
+        store.activeCategory,
+        p,
+        PAGE_SIZE,
+        filtersToParams(store.filters),
+        {
+          sort: store.sortBy === "filename" ? "filename" : "score",
+          folder: store.folderFilter,
+        }
+      );
       if (p === 1) {
         setPhotos(res.photos);
       } else {
@@ -869,20 +1041,35 @@ function PhotoGrid() {
     setLoading(false);
   }, [setPhotos]);
 
-  // Reload on category/filter change, or when an undo/redo bumps reloadToken.
-  // (filters reset pagination to page 1).
+  // Reload on category/filter/folder/sort change, or when undo/redo bumps
+  // reloadToken. Resets pagination and scroll position.
   useEffect(() => {
     setPage(1);
     setHasMore(true);
     loadPhotos(1);
-    setFocusIdx(-1);
-  }, [activeCategory, filters, reloadToken, loadPhotos]);
+    containerRef.current?.scrollTo({ top: 0 });
+  }, [activeCategory, filters, folderFilter, sortBy, reloadToken, loadPhotos]);
 
   const loadMore = useCallback(async () => {
     const next = page + 1;
     setPage(next);
     await loadPhotos(next);
   }, [page, loadPhotos]);
+
+  // Load more when scrolling near the bottom.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !hasMore) return;
+    function handleScroll() {
+      if (!el) return;
+      const threshold = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (threshold < 600 && !loading) {
+        loadMore();
+      }
+    }
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [hasMore, loading, loadMore]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -893,12 +1080,27 @@ function PhotoGrid() {
         e.target instanceof HTMLTextAreaElement
       )
         return;
+      if (e.metaKey || e.ctrlKey) return; // undo/redo handled elsewhere
 
       const store = usePhotosStore.getState();
 
-      // Ignore grid shortcuts while an overlay (compare / group panel) is open.
-      // Those overlays handle their own keys (Escape) in the capture phase.
-      if (store.comparePhotos != null || store.activeGroupId != null) return;
+      // Ignore grid shortcuts while an overlay (loupe / compare / group panel)
+      // is open. Those overlays handle their own keys in the capture phase.
+      if (
+        store.loupeOpen ||
+        store.comparePhotos != null ||
+        store.activeGroupId != null
+      )
+        return;
+
+      // Triage targets: the selection when one exists, else the focused photo.
+      const triageTargets = (): string[] => {
+        if (store.selectedIds.size > 0) return Array.from(store.selectedIds);
+        if (focusIdx >= 0 && focusIdx < filteredPhotos.length) {
+          return [filteredPhotos[focusIdx].id];
+        }
+        return [];
+      };
 
       switch (e.key.toLowerCase()) {
         case "c": {
@@ -909,38 +1111,38 @@ function PhotoGrid() {
           break;
         }
         case "k":
-          if (store.selectedIds.size > 0) {
-            api.setBatchOverride(Array.from(store.selectedIds), "keep").then(() => {
-              api.getSummary().then((s) => store.setSummary(s));
-              for (const id of store.selectedIds) store.updatePhotoDestination(id, "keep");
-              store.clearSelection();
+        case "m": {
+          const dest = e.key.toLowerCase() === "k" ? "keep" : "maybe";
+          const ids = triageTargets();
+          if (ids.length > 0) {
+            triage(ids, dest).then(() => {
+              if (store.selectedIds.size > 0) store.clearSelection();
             });
           }
           break;
-        case "m":
-          if (store.selectedIds.size > 0) {
-            api.setBatchOverride(Array.from(store.selectedIds), "maybe").then(() => {
-              api.getSummary().then((s) => store.setSummary(s));
-              for (const id of store.selectedIds) store.updatePhotoDestination(id, "maybe");
-              store.clearSelection();
+        }
+        case "r": {
+          const ids = triageTargets();
+          if (ids.length > 0) {
+            triage(ids, "reject").then(() => {
+              if (store.selectedIds.size > 0) store.clearSelection();
             });
           }
           break;
-        case "r":
-          if (store.selectedIds.size > 0) {
-            api.setBatchOverride(Array.from(store.selectedIds), "reject").then(() => {
-              api.getSummary().then((s) => store.setSummary(s));
-              for (const id of store.selectedIds) store.updatePhotoDestination(id, "reject");
-              store.clearSelection();
-            });
-          }
-          break;
+        }
         case "a":
+          e.preventDefault();
           store.selectAll();
+          break;
+        case "enter":
+          if (filteredPhotos.length > 0) {
+            if (focusIdx < 0) setFocusIdx(0);
+            setLoupeOpen(true);
+          }
           break;
         case "escape":
           store.clearSelection();
-          store.setDetailPhoto(null);
+          store.setDetailOpen(false);
           setFocusIdx(-1);
           break;
         case " ":
@@ -950,28 +1152,26 @@ function PhotoGrid() {
           }
           break;
         case "arrowright":
-          setFocusIdx((prev) =>
-            Math.min(prev + 1, filteredPhotos.length - 1)
-          );
+          e.preventDefault();
+          setFocusIdx(Math.min(focusIdx + 1, filteredPhotos.length - 1));
           break;
         case "arrowleft":
-          setFocusIdx((prev) => Math.max(prev - 1, 0));
+          e.preventDefault();
+          setFocusIdx(Math.max(focusIdx - 1, 0));
           break;
         case "arrowdown":
           e.preventDefault();
-          setFocusIdx((prev) =>
-            Math.min(prev + cols, filteredPhotos.length - 1)
-          );
+          setFocusIdx(Math.min(focusIdx + cols, filteredPhotos.length - 1));
           break;
         case "arrowup":
           e.preventDefault();
-          setFocusIdx((prev) => Math.max(prev - cols, 0));
+          setFocusIdx(Math.max(focusIdx - cols, 0));
           break;
       }
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [filteredPhotos, cols, focusIdx]);
+  }, [filteredPhotos, cols, focusIdx, setFocusIdx, setLoupeOpen]);
 
   // Scroll focused item into view
   useEffect(() => {
@@ -981,8 +1181,27 @@ function PhotoGrid() {
     }
   }, [focusIdx, cols, virtualizer]);
 
+  // First load: skeleton grid instead of a blank screen.
+  if (loading && filteredPhotos.length === 0) {
+    return (
+      <div className="flex-1 overflow-hidden px-4 py-3">
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${colWidth}px, 1fr))` }}
+        >
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="aspect-[4/3] rounded-xl bg-foreground/5" />
+              <div className="mt-2 h-2.5 w-2/3 rounded bg-foreground/5" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (filteredPhotos.length === 0 && !loading) {
-    const filtersActive = countActiveFilters(filters) > 0;
+    const filtersActive = countActiveFilters(filters) > 0 || folderFilter != null;
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-white/30">
         <ImageIcon className="size-12" />
@@ -1009,7 +1228,7 @@ function PhotoGrid() {
               className="absolute left-0 right-0 flex gap-3"
               style={{
                 top: `${virtualRow.start}px`,
-                height: `${ROW_HEIGHT}px`,
+                height: `${rowHeight}px`,
               }}
             >
               {rowPhotos.map((photo, colIdx) => {
@@ -1017,7 +1236,7 @@ function PhotoGrid() {
                 return (
                   <div
                     key={photo.id}
-                    style={{ width: `${COL_WIDTH}px` }}
+                    style={{ width: `${colWidth}px` }}
                   >
                     <PhotoCard
                       photo={photo}
@@ -1035,8 +1254,12 @@ function PhotoGrid() {
                         lastClickedIdx.current = idx;
                       }}
                       onClick={() => {
-                        setDetailPhoto(photo);
                         setFocusIdx(idx);
+                        setDetailOpen(true);
+                      }}
+                      onDoubleClick={() => {
+                        setFocusIdx(idx);
+                        setLoupeOpen(true);
                       }}
                       onOpenGroup={setActiveGroupId}
                     />
@@ -1048,7 +1271,9 @@ function PhotoGrid() {
         })}
       </div>
       {loading && (
-        <div className="py-4 text-center text-sm text-white/30">Loading...</div>
+        <div className="py-4 text-center text-sm text-white/30">
+          {t("review.loading")}
+        </div>
       )}
     </div>
   );
@@ -1127,8 +1352,14 @@ function UndoRedo() {
 
 export function Review() {
   const { setScreen } = useSessionStore();
-  const { selectedIds, summary } = usePhotosStore();
+  const { selectedIds, summary, setSummary } = usePhotosStore();
   const { t } = useLocale();
+
+  // Load the summary on mount — entering via session resume skips Processing,
+  // so nothing else has fetched it yet.
+  useEffect(() => {
+    api.getSummary().then(setSummary).catch(() => {});
+  }, [setSummary]);
 
   return (
     <div className="flex h-full flex-col">
@@ -1139,6 +1370,7 @@ export function Review() {
         <FilterPanel />
         <UndoRedo />
         <div className="flex-1" />
+        <DensityToggle />
         {selectedIds.size > 0 && (
           <span className="text-xs text-white/40">
             {selectedIds.size} {t("review.selected")}
@@ -1149,6 +1381,9 @@ export function Review() {
         </span>
       </div>
 
+      {/* Folder (SD card) filter */}
+      <FolderChips />
+
       {/* Main area */}
       <div className="flex min-h-0 flex-1">
         <PhotoGrid />
@@ -1158,14 +1393,15 @@ export function Review() {
       {/* Selection actions bar */}
       <SelectionBar />
 
-      {/* Group panel overlay */}
+      {/* Overlays */}
       <GroupPanel />
-
-      {/* Compare overlay */}
       <Compare />
+      <Loupe />
+      <Toast />
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-end border-t border-white/10 px-4 py-2">
+      <div className="flex items-center justify-between border-t border-white/10 px-4 py-2">
+        <ShortcutsHelp />
         <Button
           className="gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 font-semibold text-black hover:from-amber-400 hover:to-yellow-400"
           onClick={() => setScreen("export")}
