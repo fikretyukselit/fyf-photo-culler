@@ -3,6 +3,7 @@ import "./App.css";
 import { useSessionStore } from "@/lib/stores";
 import { api } from "@/lib/api";
 import { Landing } from "@/components/Landing";
+import { Onboarding } from "@/components/Onboarding";
 import { Processing } from "@/components/Processing";
 import { Review } from "@/components/Review";
 import { Export } from "@/components/Export";
@@ -193,6 +194,7 @@ function App() {
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-background rounded-[10px]">
       <Titlebar />
       {backendStatus === "ready" && <UpdatePopup />}
+      {backendStatus === "ready" && <Onboarding />}
       {/* pt matches the fixed 38px titlebar so screen content never hides under it */}
       <main className="flex-1 overflow-hidden pt-[38px]">
         {backendStatus !== "ready" ? (

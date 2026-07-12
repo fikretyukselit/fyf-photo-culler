@@ -161,6 +161,20 @@ const translations = {
     "shortcuts.zoom": "Zoom in large view",
     "shortcuts.undoRedo": "Undo / Redo",
     "shortcuts.close": "Close / clear selection",
+
+    // Onboarding tour
+    "onboarding.skip": "Skip",
+    "onboarding.next": "Next",
+    "onboarding.start": "Let's start",
+    "onboarding.replay": "How it works",
+    "onboarding.s1.title": "Load your SD cards",
+    "onboarding.s1.caption": "Pick one or more folders — subfolders are scanned too.",
+    "onboarding.s2.title": "AI scores every shot",
+    "onboarding.s2.caption": "Sharpness, exposure and duplicates are analyzed automatically.",
+    "onboarding.s3.title": "Cull at the speed of keys",
+    "onboarding.s3.caption": "Enter opens the viewer · K keep · M maybe · R reject — it auto-advances.",
+    "onboarding.s4.title": "Export, organized",
+    "onboarding.s4.caption": "Keep, Maybe and Reject land in tidy folders, ready for Lightroom.",
   },
   tr: {
     // Landing
@@ -321,6 +335,20 @@ const translations = {
     "shortcuts.zoom": "Büyük görünümde yakınlaştır",
     "shortcuts.undoRedo": "Geri al / Yinele",
     "shortcuts.close": "Kapat / seçimi temizle",
+
+    // Onboarding tour
+    "onboarding.skip": "Geç",
+    "onboarding.next": "İleri",
+    "onboarding.start": "Başlayalım",
+    "onboarding.replay": "Nasıl çalışır?",
+    "onboarding.s1.title": "SD kartlarını yükle",
+    "onboarding.s1.caption": "Bir veya birden çok klasör seç — alt klasörler de taranır.",
+    "onboarding.s2.title": "AI her kareyi puanlar",
+    "onboarding.s2.caption": "Keskinlik, pozlama ve kopyalar otomatik analiz edilir.",
+    "onboarding.s3.title": "Klavye hızında ele",
+    "onboarding.s3.caption": "Enter büyük görünümü açar · K tut · M belki · R reddet — otomatik ilerler.",
+    "onboarding.s4.title": "Düzenlenmiş şekilde dışa aktar",
+    "onboarding.s4.caption": "Tut, Belki ve Reddet düzenli klasörlere ayrılır — Lightroom'a hazır.",
   },
 } as const;
 
