@@ -6,7 +6,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS
 
 logger = logging.getLogger(__name__)
@@ -21,23 +21,31 @@ OTHER_IMAGE_EXTENSIONS = {
 
 
 def load_and_resize(path: str, max_edge: int = 1024) -> Optional[np.ndarray]:
-    """Load a JPEG and resize so the long edge equals max_edge.
-    Returns BGR numpy array, or None if the file is corrupt."""
+    """Load an image, apply its EXIF orientation, and resize so the long edge
+    equals max_edge. Returns a BGR numpy array, or None if the file is corrupt.
+
+    Loading goes through PIL + ImageOps.exif_transpose so that a photo shot in
+    portrait (EXIF orientation 6/8) is analysed upright — cv2.imread ignores the
+    orientation tag, which made rotated duplicates miss and skewed sharpness/
+    exposure. pHash uses the same PIL path (see duplicates.compute_phash), so the
+    whole pipeline now sees images the same, correct way up."""
     try:
-        img = cv2.imread(path)
-        if img is None:
-            logger.warning(f"Could not read image: {path}")
-            return None
-        h, w = img.shape[:2]
-        scale = max_edge / max(h, w)
-        if scale < 1.0:
-            new_w = int(w * scale)
-            new_h = int(h * scale)
-            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-        return img
+        with Image.open(path) as pil_img:
+            pil_img = ImageOps.exif_transpose(pil_img)
+            pil_img = pil_img.convert("RGB")
+            # RGB (PIL) -> BGR (the order the rest of the cv2 code expects).
+            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     except Exception as e:
         logger.warning(f"Error loading {path}: {e}")
         return None
+
+    h, w = img.shape[:2]
+    scale = max_edge / max(h, w)
+    if scale < 1.0:
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    return img
 
 
 def extract_exif(path: str) -> dict:

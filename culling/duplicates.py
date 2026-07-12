@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import cv2
 import imagehash
-from PIL import Image
+from PIL import Image, ImageOps
 from skimage.metrics import structural_similarity as ssim
 from tqdm import tqdm
 
@@ -17,8 +17,11 @@ BURST_TIME_WINDOW = 2.0
 
 
 def compute_phash(path: str) -> imagehash.ImageHash:
-    img = Image.open(path)
-    return imagehash.phash(img)
+    # exif_transpose so a portrait shot and its rotated variant hash the same —
+    # matches the orientation handling in utils.load_and_resize.
+    with Image.open(path) as img:
+        img = ImageOps.exif_transpose(img)
+        return imagehash.phash(img)
 
 
 def find_pairs(hashes: Dict[str, imagehash.ImageHash],

@@ -1,11 +1,13 @@
-"""Tests for culling.utils file scanning (recursive, hidden-dir aware)."""
+"""Tests for culling.utils file scanning and image loading."""
 
 import os
 import sys
 
+from PIL import Image
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from culling.utils import list_jpeg_files, count_scannable
+from culling.utils import list_jpeg_files, count_scannable, load_and_resize
 
 
 def _touch(path):
@@ -70,3 +72,33 @@ class TestCountScannable:
         jpg, other = count_scannable(str(tmp_path))
         assert jpg == 1
         assert other == 0
+
+
+class TestExifOrientation:
+    def test_orientation_applied_on_load(self, tmp_path):
+        # A clearly landscape image (stored 60 wide x 30 tall).
+        base = Image.new("RGB", (60, 30), "black")
+
+        plain = str(tmp_path / "plain.jpg")
+        base.save(plain, quality=95)
+
+        exif = base.getexif()
+        exif[274] = 6  # EXIF Orientation = rotate 90° CW to display upright
+        rotated = str(tmp_path / "rot.jpg")
+        base.save(rotated, exif=exif, quality=95)
+
+        plain_img = load_and_resize(plain, max_edge=1000)
+        rot_img = load_and_resize(rotated, max_edge=1000)
+
+        # Plain: array is (H, W) = (30, 60).
+        assert plain_img.shape[:2] == (30, 60)
+        # Orientation 6 must swap dimensions to displayed (30 wide x 60 tall)
+        # → array (60, 30). If the tag were ignored (old cv2.imread path) this
+        # would still be (30, 60) and the test would fail.
+        assert rot_img.shape[:2] == (60, 30)
+
+    def test_corrupt_file_returns_none(self, tmp_path):
+        bad = str(tmp_path / "broken.jpg")
+        with open(bad, "wb") as f:
+            f.write(b"not a real jpeg")
+        assert load_and_resize(bad) is None
