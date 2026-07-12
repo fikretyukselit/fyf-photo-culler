@@ -41,22 +41,25 @@
 }
 
 .dark {
-    --background: oklch(0.08 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.12 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.12 0 0);
-    --popover-foreground: oklch(0.985 0 0);
+    /* Photo-tool neutral dark: slightly lifted from pure black so surfaces can
+       layer (background < card < muted), with a whisper of cool tint. Keeps
+       the UI chromatically quiet so the photos own the color judgment. */
+    --background: oklch(0.145 0.004 280);
+    --foreground: oklch(0.97 0.002 280);
+    --card: oklch(0.19 0.005 280);
+    --card-foreground: oklch(0.97 0.002 280);
+    --popover: oklch(0.19 0.005 280);
+    --popover-foreground: oklch(0.97 0.002 280);
     --primary: oklch(0.82 0.15 80);
     --primary-foreground: oklch(0.18 0.02 80);
     --secondary: oklch(0.35 0.12 300);
     --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.2 0 0);
-    --muted-foreground: oklch(0.65 0 0);
+    --muted: oklch(0.23 0.005 280);
+    --muted-foreground: oklch(0.68 0.004 280);
     --accent: oklch(0.35 0.15 310);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
+    --border: oklch(1 0 0 / 9%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.82 0.15 80);
     --chart-1: oklch(0.82 0.15 80);
@@ -117,9 +120,11 @@
     --color-fyf-gold: oklch(0.82 0.15 80);
     --color-fyf-purple: oklch(0.35 0.15 310);
     --color-fyf-blue: oklch(0.45 0.15 260);
-    --color-keep: oklch(0.64 0.17 145);
-    --color-maybe: oklch(0.7 0.17 80);
-    --color-reject: oklch(0.63 0.24 25);
+    /* Triage family: one chroma/lightness recipe across all three hues so
+       keep/maybe/reject read as siblings, with maybe aligned to brand gold. */
+    --color-keep: oklch(0.74 0.15 150);
+    --color-maybe: oklch(0.8 0.14 80);
+    --color-reject: oklch(0.68 0.18 25);
 }
 
 @layer base {

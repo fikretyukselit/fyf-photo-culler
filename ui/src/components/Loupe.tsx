@@ -143,8 +143,8 @@ export function Loupe() {
   if (!loupeOpen || !photo) return null;
 
   const score = photo.quality_score ?? 0;
-  const scoreColor =
-    score >= 70 ? "bg-green-500" : score >= 40 ? "bg-amber-500" : "bg-red-500";
+  const scoreDot =
+    score >= 70 ? "bg-keep" : score >= 40 ? "bg-maybe" : "bg-reject";
 
   // Filmstrip: a window of ~15 thumbs centered on the current photo.
   const stripStart = Math.max(0, Math.min(idx - 7, visible.length - 15));
@@ -159,12 +159,8 @@ export function Loupe() {
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-2.5">
         <span className="truncate text-sm font-medium text-white/90">{photo.filename}</span>
-        <span
-          className={cn(
-            "rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums text-white",
-            scoreColor
-          )}
-        >
+        <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-white">
+          <span className={cn("size-1.5 rounded-full", scoreDot)} />
           {Math.round(score)}
         </span>
         <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", destBadge(photo.destination))}>

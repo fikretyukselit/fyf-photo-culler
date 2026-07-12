@@ -431,8 +431,8 @@ function PhotoCard({
   const { t } = useLocale();
   const [loaded, setLoaded] = useState(false);
   const score = photo.quality_score ?? 0;
-  const scoreColor =
-    score >= 70 ? "bg-green-500" : score >= 40 ? "bg-amber-500" : "bg-red-500";
+  const scoreDot =
+    score >= 70 ? "bg-keep" : score >= 40 ? "bg-maybe" : "bg-reject";
   const cat = categoryOf(photo.destination);
   const borderColor =
     cat === "keep"
@@ -453,12 +453,12 @@ function PhotoCard({
       )}
       <div
         className={cn(
-          "group relative cursor-pointer overflow-hidden rounded-xl border border-foreground/5 bg-foreground/[0.03] transition-all duration-200",
+          "group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-card transition-all duration-200",
           "border-l-[3px]",
           borderColor,
-          isSelected && "ring-2 ring-amber-400/50",
-          isFocused && "ring-2 ring-foreground/40",
-          "hover:border-foreground/15 hover:shadow-lg hover:shadow-foreground/5"
+          isSelected && "ring-2 ring-amber-400/60",
+          isFocused && "ring-2 ring-amber-300",
+          "hover:border-foreground/15 hover:shadow-lg hover:shadow-black/30"
         )}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
@@ -476,13 +476,9 @@ function PhotoCard({
               loaded ? "opacity-100" : "opacity-0"
             )}
           />
-          {/* Score badge */}
-          <div
-            className={cn(
-              "absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums text-white",
-              scoreColor
-            )}
-          >
+          {/* Score badge — quiet dark pill so it never fights the photo */}
+          <div className="absolute right-2 top-2 flex items-center gap-1.5 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white backdrop-blur-sm">
+            <span className={cn("size-1.5 rounded-full", scoreDot)} />
             {Math.round(score)}
           </div>
           {/* Group badge */}
@@ -1371,8 +1367,9 @@ export function Review() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Top bar */}
-      <div className="glass flex items-center gap-4 border-b border-white/10 px-4 py-2">
+      {/* Top bar — z-30 so its dropdowns (sort/filter) stack above the
+          absolutely-positioned virtualized grid rows */}
+      <div className="glass relative z-30 flex items-center gap-4 border-b border-white/10 px-4 py-2">
         <CategoryTabs />
         <SortDropdown />
         <FilterPanel />
