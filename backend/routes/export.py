@@ -1,11 +1,10 @@
 import json
 import os
-import time
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-from culling.organizer import organize_photos, DEST_TO_DIR
+from culling.organizer import DEST_TO_DIR
 from culling.utils import safe_copy
 from backend.state import state
 

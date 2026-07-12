@@ -2,7 +2,6 @@ import logging
 from typing import Dict, List, Optional, Set, Tuple
 
 import cv2
-import numpy as np
 import imagehash
 from PIL import Image
 from skimage.metrics import structural_similarity as ssim
