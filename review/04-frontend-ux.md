@@ -1,5 +1,7 @@
 # 04 — Frontend / UX (`ui/src`)
 
+> **Durum (2026-07-12):** ✅ 4.1 port keşfi + bağlanıyor/hata ekranları (F0.3) · ✅ undo (F0.2) · ✅ yan yana karşılaştırma (F1.2) · ✅ burst/duplicate grupları UI'da (F1.1) · ✅ EXIF/skor/sebep filtreleri + "motorla çelişenler" (F1.4) · ✅ Processing ilerleme doğruluğu (A). **Açık:** SSE reconnect/timeout, kalan hardcoded i18n string'leri, grid içi 1:1 zoom, erişilebilirlik (rol/aria) iyileştirmeleri.
+
 ## Akış
 
 Landing (klasör seçimi, merge toggle, çıktı klasörü) → Processing (SSE ilerleme, 3 aşama) → Review (kategori sekmeleri, sanal grid, sağda detay paneli, K/M/R kısayolları, çoklu seçim) → Export (özet + SSE ilerleme).

@@ -1,5 +1,7 @@
 # 01 — Mimari Değerlendirme
 
+> **Durum (2026-07-12):** ✅ port keşfi zinciri tamamlandı + timeout/stderr log (F0.3) · ✅ CORS localhost'a daraltıldı · ✅ sidecar child hemen izleniyor. **Açık:** üç-dilli stack / Rust'a taşıma değerlendirmesi, PyInstaller onefile açılış gecikmesi (`--onedir`), thumbnail cache'in platform dizinine taşınması (app-data helper eklendi, thumbnail henüz taşınmadı), sidecar HTTP'sine token.
+
 ## Mevcut Mimari
 
 ```
