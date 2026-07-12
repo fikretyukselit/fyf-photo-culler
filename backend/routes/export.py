@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 
 from culling.organizer import DEST_TO_DIR
 from culling.utils import safe_copy
-from backend.state import state
+from backend.state import state, resolve_output_dir
 
 router = APIRouter()
 
@@ -38,7 +38,9 @@ def export_photos():
             yield f"data: {json.dumps({'stage': 'error', 'message': 'No photos to export'})}\n\n"
             return
 
-        output_dir = state.output_dir
+        # Re-resolve: sessions restored from disk may carry an old relative or
+        # empty output dir.
+        output_dir = resolve_output_dir(state.output_dir)
 
         if state.merge_mode or len(state.input_folders) <= 1:
             # Single output directory
@@ -67,6 +69,6 @@ def export_photos():
                     pct = int((overall / total) * 100)
                     yield f"data: {json.dumps({'stage': 'exporting', 'current': overall, 'total': total, 'pct': pct, 'current_file': os.path.basename(path)})}\n\n"
 
-        yield f"data: {json.dumps({'stage': 'complete', 'current': total, 'total': total, 'pct': 100, 'current_file': ''})}\n\n"
+        yield f"data: {json.dumps({'stage': 'complete', 'current': total, 'total': total, 'pct': 100, 'current_file': '', 'output_dir': os.path.abspath(output_dir)})}\n\n"
 
     return StreamingResponse(_export_stream(), media_type="text/event-stream")

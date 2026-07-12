@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from culling.technical import analyze_photo
 from culling.duplicates import detect_duplicates_and_similar
 from culling.utils import list_jpeg_files_multi, count_scannable
-from backend.state import state
+from backend.state import state, resolve_output_dir
 from backend import persistence
 
 router = APIRouter()
@@ -212,7 +212,7 @@ def start_analysis(req: AnalyzeRequest):
         state.loaded_from_disk = False
         state.input_folders = req.folders
         state.merge_mode = req.merge
-        state.output_dir = req.output
+        state.output_dir = resolve_output_dir(req.output)
         state.analyses = {}
         state.destinations = {}
         state.overrides = {}

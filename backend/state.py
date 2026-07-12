@@ -1,5 +1,16 @@
+import os
 import threading
 from dataclasses import dataclass, field
+
+
+def resolve_output_dir(raw: str) -> str:
+    """Always return an absolute output dir. An empty/whitespace value (user
+    never picked a folder) falls back to ~/Pictures/FYF Photo Culler — a
+    relative path would resolve against the sidecar's cwd, which in a
+    packaged app is not writable or even meaningful."""
+    if raw and raw.strip():
+        return os.path.abspath(os.path.expanduser(raw.strip()))
+    return os.path.join(os.path.expanduser("~"), "Pictures", "FYF Photo Culler")
 
 
 @dataclass
