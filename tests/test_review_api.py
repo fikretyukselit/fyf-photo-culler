@@ -85,6 +85,7 @@ def clean_state():
         state.path_to_group = {}
         state.undo_stack = []
         state.redo_stack = []
+        state.is_running = False
         state.loaded_from_disk = False
         state.saved_at = None
 
@@ -307,11 +308,26 @@ class TestUndoRedo:
 
 
 class TestSession:
-    def test_session_not_resumable_by_default(self):
+    def test_active_session_can_resume_after_returning_to_import(self):
         _seed_state("/tmp/s1.jpg", destination="keep")
-        # loaded_from_disk is False (reset by fixture) → not resumable.
+        # Returning to import must not hide an existing in-memory review.
         res = client.get("/api/session")
-        assert res.json()["resumable"] is False
+        assert res.json()["resumable"] is True
+
+    def test_empty_session_is_not_resumable(self):
+        assert client.get("/api/session").json()["resumable"] is False
+
+    def test_running_analysis_is_not_resumable(self):
+        _seed_state("/tmp/running.jpg", destination="keep")
+        state.is_running = True
+        assert client.get("/api/session").json()["resumable"] is False
+
+    def test_session_reports_actual_export_destination(self):
+        state.output_dir = "/tmp/fyf-session-export"
+        state.merge_mode = False
+        body = client.get("/api/session").json()
+        assert body["output_dir"] == "/tmp/fyf-session-export"
+        assert body["merge_mode"] is False
 
     def test_session_resumable_when_loaded_from_disk(self):
         _seed_state("/tmp/s2.jpg", destination="keep")

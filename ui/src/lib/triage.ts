@@ -7,7 +7,10 @@ import { t } from "./i18n";
  * immediately, the API call runs in the background, and a failure rolls the
  * change back (with a toast) so the UI never lies about saved state.
  */
-export async function triage(ids: string[], destination: string): Promise<void> {
+export async function triage(
+  ids: string[],
+  destination: string,
+): Promise<void> {
   if (ids.length === 0) return;
   const store = usePhotosStore.getState();
 
@@ -24,10 +27,17 @@ export async function triage(ids: string[], destination: string): Promise<void> 
 
   usePhotosStore.setState((s) => ({
     photos: s.photos.map((p) =>
-      previous.has(p.id) ? { ...p, destination } : p
+      previous.has(p.id) ? { ...p, destination } : p,
     ),
   }));
   store.adjustSummary(delta);
+  // In the all-photos view the current frame stays in the list. Advance to
+  // the next frame explicitly; category tabs advance as the frame drops out.
+  if (ids.length === 1 && store.activeCategory === "all") {
+    const index = store.photos.findIndex((p) => p.id === ids[0]);
+    if (index === store.focusIdx)
+      store.setFocusIdx(Math.min(index + 1, store.photos.length - 1));
+  }
 
   try {
     if (ids.length === 1) {
@@ -35,15 +45,21 @@ export async function triage(ids: string[], destination: string): Promise<void> 
     } else {
       await api.setBatchOverride(ids, destination);
     }
-    api.getHistory().then((h) => usePhotosStore.getState().setHistory(h)).catch(() => {});
+    api
+      .getHistory()
+      .then((h) => usePhotosStore.getState().setHistory(h))
+      .catch(() => {});
   } catch (e) {
     console.error("Triage failed, rolling back:", e);
     usePhotosStore.setState((s) => ({
       photos: s.photos.map((p) =>
-        previous.has(p.id) ? { ...p, destination: previous.get(p.id)! } : p
+        previous.has(p.id) ? { ...p, destination: previous.get(p.id)! } : p,
       ),
     }));
-    api.getSummary().then((sum) => usePhotosStore.getState().setSummary(sum)).catch(() => {});
+    api
+      .getSummary()
+      .then((sum) => usePhotosStore.getState().setSummary(sum))
+      .catch(() => {});
     const setToast = usePhotosStore.getState().setToast;
     setToast(t("triage.failed"));
     setTimeout(() => usePhotosStore.getState().setToast(null), 4000);

@@ -49,8 +49,8 @@ export const useSessionStore = create<SessionStore>((set) => ({
   backendPort: null,
   theme: (localStorage.getItem("fyf-theme") as "dark" | "light") || "dark",
   locale: (localStorage.getItem("fyf-locale") as "en" | "tr") || "en",
-  // First launch: play the animated how-it-works tour once.
-  onboardingOpen: localStorage.getItem("fyf-onboarding-seen") !== "1",
+  // Guidance is available on demand; importing is usable on first launch.
+  onboardingOpen: false,
 
   setOnboardingOpen: (onboardingOpen) => {
     if (!onboardingOpen) localStorage.setItem("fyf-onboarding-seen", "1");
@@ -115,14 +115,21 @@ export function categoryOf(destination: string): "keep" | "maybe" | "reject" {
 
 // Mirror of the backend's _category_matches so client-side filtering keeps the
 // exact set the server returned (reject sub-types belong to the reject tab).
-export function categoryMatches(destination: string, category: string): boolean {
+export function categoryMatches(
+  destination: string,
+  category: string,
+): boolean {
+  if (category === "all") return true;
   if (category === "reject") return REJECT_DESTINATIONS.has(destination);
   return destination === category;
 }
 
 /** Photos currently visible in the grid: the server's order, minus photos
  * whose destination changed since load (optimistic triage removal). */
-export function visiblePhotos(photos: Photo[], activeCategory: string): Photo[] {
+export function visiblePhotos(
+  photos: Photo[],
+  activeCategory: string,
+): Photo[] {
   return photos.filter((p) => categoryMatches(p.destination, activeCategory));
 }
 
@@ -216,7 +223,8 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
   reloadToken: 0,
   toast: null,
 
-  setHistory: ({ can_undo, can_redo }) => set({ canUndo: can_undo, canRedo: can_redo }),
+  setHistory: ({ can_undo, can_redo }) =>
+    set({ canUndo: can_undo, canRedo: can_redo }),
   bumpReload: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),
 
   setPhotos: (photos) => set({ photos }),
@@ -251,7 +259,9 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
     set((state) => {
       const { photos, activeCategory } = state;
       const filtered =
-        activeCategory === "all" ? photos : visiblePhotos(photos, activeCategory);
+        activeCategory === "all"
+          ? photos
+          : visiblePhotos(photos, activeCategory);
 
       const startIdx = filtered.findIndex((p) => p.id === startId);
       const endIdx = filtered.findIndex((p) => p.id === endId);
@@ -272,7 +282,9 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
     set((state) => {
       const { photos, activeCategory } = state;
       const filtered =
-        activeCategory === "all" ? photos : visiblePhotos(photos, activeCategory);
+        activeCategory === "all"
+          ? photos
+          : visiblePhotos(photos, activeCategory);
       return { selectedIds: new Set(filtered.map((p) => p.id)) };
     }),
 
@@ -289,9 +301,18 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
   setComparePhotos: (comparePhotos) => set({ comparePhotos }),
 
   setFilters: (patch) =>
-    set((state) => ({ filters: { ...state.filters, ...patch } })),
+    set((state) => ({
+      filters: { ...state.filters, ...patch },
+      selectedIds: new Set(),
+      focusIdx: -1,
+    })),
 
-  clearFilters: () => set({ filters: { ...EMPTY_FILTERS } }),
+  clearFilters: () =>
+    set({
+      filters: { ...EMPTY_FILTERS },
+      selectedIds: new Set(),
+      focusIdx: -1,
+    }),
 
   setFolderFilter: (folderFilter) =>
     set({ folderFilter, selectedIds: new Set(), focusIdx: -1 }),
@@ -320,7 +341,7 @@ export const usePhotosStore = create<PhotosStore>((set) => ({
   updatePhotoDestination: (id, destination) =>
     set((state) => ({
       photos: state.photos.map((p) =>
-        p.id === id ? { ...p, destination } : p
+        p.id === id ? { ...p, destination } : p,
       ),
     })),
 }));

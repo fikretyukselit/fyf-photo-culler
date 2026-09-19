@@ -21,17 +21,25 @@ class ApiClient {
   }
 
   async analyze(folders: string[], merge: boolean, output: string) {
-    return this.request<{ status: string }>("/api/analyze", {
-      method: "POST",
-      body: JSON.stringify({ folders, merge, output }),
-    });
+    const result = await this.request<{ status?: string; error?: string }>(
+      "/api/analyze",
+      {
+        method: "POST",
+        body: JSON.stringify({ folders, merge, output }),
+      },
+    );
+    if (result.error) throw new Error(result.error);
+    return result;
   }
 
   async checkFolders(folders: string[]) {
-    return this.request<{ jpg_count: number; other_count: number }>("/api/check_folders", {
-      method: "POST",
-      body: JSON.stringify({ folders }),
-    });
+    return this.request<{ jpg_count: number; other_count: number }>(
+      "/api/check_folders",
+      {
+        method: "POST",
+        body: JSON.stringify({ folders }),
+      },
+    );
   }
 
   progressStream(): EventSource {
@@ -52,23 +60,31 @@ class ApiClient {
     opts?: { sort?: "score" | "filename"; folder?: string | null },
   ) {
     const params = new URLSearchParams();
-    if (category) params.set("category", category);
+    if (category && category !== "all") params.set("category", category);
     if (page != null) params.set("page", String(page));
     if (limit != null) params.set("limit", String(limit));
     if (filters) {
-      if (filters.min_score != null) params.set("min_score", String(filters.min_score));
-      if (filters.max_score != null) params.set("max_score", String(filters.max_score));
-      if (filters.min_iso != null) params.set("min_iso", String(filters.min_iso));
-      if (filters.max_iso != null) params.set("max_iso", String(filters.max_iso));
-      if (filters.reject_reason != null) params.set("reject_reason", filters.reject_reason);
+      if (filters.min_score != null)
+        params.set("min_score", String(filters.min_score));
+      if (filters.max_score != null)
+        params.set("max_score", String(filters.max_score));
+      if (filters.min_iso != null)
+        params.set("min_iso", String(filters.min_iso));
+      if (filters.max_iso != null)
+        params.set("max_iso", String(filters.max_iso));
+      if (filters.reject_reason != null)
+        params.set("reject_reason", filters.reject_reason);
       if (filters.mismatch) params.set("mismatch", "true");
     }
     if (opts?.sort) params.set("sort", opts.sort);
     if (opts?.folder) params.set("folder", opts.folder);
     const qs = params.toString();
-    return this.request<{ photos: Photo[]; total: number; page: number; limit: number }>(
-      `/api/photos${qs ? `?${qs}` : ""}`
-    );
+    return this.request<{
+      photos: Photo[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/api/photos${qs ? `?${qs}` : ""}`);
   }
 
   async getFolders() {
@@ -92,13 +108,18 @@ class ApiClient {
   }
 
   async getGroup(groupId: string) {
-    return this.request<PhotoGroup>(`/api/groups/${encodeURIComponent(groupId)}`);
+    return this.request<PhotoGroup>(
+      `/api/groups/${encodeURIComponent(groupId)}`,
+    );
   }
 
   async getSummary() {
-    return this.request<{ keep: number; maybe: number; reject: number; total: number }>(
-      "/api/summary"
-    );
+    return this.request<{
+      keep: number;
+      maybe: number;
+      reject: number;
+      total: number;
+    }>("/api/summary");
   }
 
   async setOverride(photoId: string, destination: string) {
@@ -137,7 +158,9 @@ class ApiClient {
   }
 
   async getHistory() {
-    return this.request<{ can_undo: boolean; can_redo: boolean }>("/api/history");
+    return this.request<{ can_undo: boolean; can_redo: boolean }>(
+      "/api/history",
+    );
   }
 
   async getSession() {
@@ -145,7 +168,9 @@ class ApiClient {
   }
 
   async discardSession() {
-    return this.request<{ status: string }>("/api/session/discard", { method: "POST" });
+    return this.request<{ status: string }>("/api/session/discard", {
+      method: "POST",
+    });
   }
 
   exportStream(): EventSource {
@@ -153,12 +178,7 @@ class ApiClient {
   }
 
   async getExportPreview() {
-    return this.request<{
-      keep: string[];
-      maybe: string[];
-      reject: string[];
-      total: number;
-    }>("/api/export/preview");
+    return this.request<Record<string, number>>("/api/export/preview");
   }
 }
 
@@ -214,10 +234,24 @@ interface HistoryResult {
 
 interface SessionInfo {
   resumable: boolean;
+  output_dir?: string;
+  merge_mode?: boolean;
   saved_at: number | null;
   input_folders: string[];
-  summary: { keep: number; maybe: number; reject: number; total: number } | null;
+  summary: {
+    keep: number;
+    maybe: number;
+    reject: number;
+    total: number;
+  } | null;
 }
 
-export type { Photo, PhotoGroup, PhotoFilterParams, HistoryResult, SessionInfo, FolderInfo };
+export type {
+  Photo,
+  PhotoGroup,
+  PhotoFilterParams,
+  HistoryResult,
+  SessionInfo,
+  FolderInfo,
+};
 export const api = new ApiClient();

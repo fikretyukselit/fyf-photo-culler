@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from backend.state import state
+from backend.state import state, resolve_output_dir
 from backend import persistence
 
 router = APIRouter()
@@ -22,11 +22,12 @@ def _summary() -> dict:
 
 @router.get("/api/session")
 def get_session():
-    """Report whether a previous session was restored from disk and can be
-    resumed. `resumable` is only true right after startup (before the user
-    starts a fresh analysis, which clears the flag)."""
+    """Expose the current session so users can return from the import screen
+    and see the actual export destination, including after a restart."""
     return {
-        "resumable": state.loaded_from_disk and bool(state.analyses),
+        "resumable": bool(state.analyses) and not state.is_running,
+        "output_dir": resolve_output_dir(state.output_dir),
+        "merge_mode": state.merge_mode,
         "saved_at": state.saved_at,
         "input_folders": state.input_folders,
         "summary": _summary() if state.analyses else None,

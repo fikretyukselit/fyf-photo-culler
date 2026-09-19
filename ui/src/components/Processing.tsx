@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle, Circle, Loader2, XCircle, ArrowLeft, RotateCcw } from "lucide-react";
+import {
+  CheckCircle,
+  Circle,
+  Loader2,
+  XCircle,
+  ArrowLeft,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/lib/stores";
@@ -37,7 +44,10 @@ function phaseIndex(stage: string): number {
 // A single monotonic 0-100 number across the whole job. The backend's own `pct`
 // is per-substage (it resets each step), so we weight the phases here: technical
 // analysis is the long pole, duplicate detection the tail.
-function computeOverall(stage: string, stages: Record<string, StageData>): number {
+function computeOverall(
+  stage: string,
+  stages: Record<string, StageData>,
+): number {
   if (stage === "complete") return 100;
   const p = phaseIndex(stage);
   if (p < 0) return 0;
@@ -70,6 +80,7 @@ export function Processing() {
 
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const esRef = useRef<EventSource | null>(null);
 
@@ -102,38 +113,41 @@ export function Processing() {
           ]);
           setPhotos(photosRes.photos);
           setSummary(summaryRes);
-          setActiveCategory("keep");
+          setActiveCategory("all");
           setScreen("review");
         } else if (data.stage === "error" || data.stage === "cancelled") {
           es.close();
           setError(
             data.stage === "cancelled"
-              ? "Analysis was cancelled."
-              : data.current_file || "An error occurred during analysis."
+              ? t("processing.cancelled")
+              : data.current_file || t("processing.error"),
           );
         }
       } catch {
-        // ignore parse errors
+        es.close();
+        setError(t("processing.resultError"));
       }
     };
 
     es.onerror = () => {
       es.close();
-      setError("Lost connection to analysis process.");
+      setError(t("processing.connectionLost"));
     };
 
     return () => {
       es.close();
       esRef.current = null;
     };
-  }, [setProgress, setPhotos, setSummary, setActiveCategory, setScreen]);
+  }, [setProgress, setPhotos, setSummary, setActiveCategory, setScreen, t]);
 
   async function handleCancel() {
     setCancelling(true);
+    setCancelError(false);
     try {
       await api.cancel();
     } catch {
-      // ignore
+      setCancelling(false);
+      setCancelError(true);
     }
   }
 
@@ -155,23 +169,25 @@ export function Processing() {
   const overall = computeOverall(currentStage, stages);
 
   return (
-    <div className="relative flex h-full items-center justify-center overflow-hidden">
-      {/* Subtle background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 h-[400px] w-[400px] rounded-full bg-purple-700/15 blur-[120px]" />
-        <div className="absolute -right-32 -bottom-32 h-[400px] w-[400px] rounded-full bg-blue-700/15 blur-[120px]" />
-      </div>
-
-      <div className="glass relative z-10 mx-4 w-full max-w-md rounded-2xl p-8">
+    <div className="stage-page">
+      <div className="stage-card">
         {error ? (
           <>
             <div className="mb-6 flex flex-col items-center gap-3">
               <XCircle className="size-12 text-red-400" />
-              <h2 className="text-xl font-semibold">{t("processing.failed")}</h2>
-              <p className="text-center text-sm text-muted-foreground">{error}</p>
+              <h2 className="text-xl font-semibold">
+                {t("processing.failed")}
+              </h2>
+              <p className="text-center text-sm text-muted-foreground">
+                {error}
+              </p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 gap-2" onClick={handleBack}>
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={handleBack}
+              >
                 <ArrowLeft className="size-4" />
                 {t("processing.back")}
               </Button>
@@ -183,9 +199,10 @@ export function Processing() {
           </>
         ) : (
           <>
-            <h2 className="mb-6 text-center text-xl font-semibold">
+            <h2 className="text-2xl font-semibold tracking-tight">
               {t("processing.title")}
             </h2>
+            <p className="stage-description">{t("processing.hint")}</p>
 
             {/* Overall progress */}
             <div className="mb-6 flex flex-col items-center gap-2">
@@ -197,6 +214,16 @@ export function Processing() {
               </span>
             </div>
 
+            <div
+              className="progress-track mb-7"
+              role="progressbar"
+              aria-label={t("processing.title")}
+              aria-valuenow={overall}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div style={{ width: `${overall}%` }} />
+            </div>
             {/* Stages */}
             <div className="mb-6 space-y-3">
               {PHASES.map((phase, i) => {
@@ -213,7 +240,11 @@ export function Processing() {
                 }
                 // Scanning reports 0/0, so we never show a count for it.
                 const showCount = i > 0 && !!stageData && stageData.total > 0;
-                const barPct = isDone ? 100 : isActive ? (stageData?.pct ?? 0) : 0;
+                const barPct = isDone
+                  ? 100
+                  : isActive
+                    ? (stageData?.pct ?? 0)
+                    : 0;
 
                 return (
                   <div key={i} className="space-y-1.5">
@@ -230,7 +261,7 @@ export function Processing() {
                           "flex-1 text-sm",
                           isDone && "text-muted-foreground",
                           isActive && "font-medium text-foreground",
-                          isPending && "text-foreground/30"
+                          isPending && "text-foreground/30",
                         )}
                       >
                         {t(phase.tKey)}
@@ -248,7 +279,7 @@ export function Processing() {
                           "h-full rounded-full transition-all duration-500",
                           isDone && "bg-green-500",
                           isActive && "bg-amber-400",
-                          isPending && "bg-foreground/10"
+                          isPending && "bg-foreground/10",
                         )}
                         style={{ width: `${barPct}%` }}
                       />
@@ -265,6 +296,11 @@ export function Processing() {
               </p>
             )}
 
+            {cancelError && (
+              <p role="alert" className="inline-error">
+                {t("processing.cancelError")}
+              </p>
+            )}
             {/* Cancel button */}
             <Button
               variant="outline"

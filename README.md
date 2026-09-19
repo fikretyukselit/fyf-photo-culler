@@ -5,13 +5,13 @@
 <h1 align="center">FYF Photo Culler</h1>
 
 <p align="center">
-  <strong>AI-powered photo culling and organization for FRC competition photography</strong>
+  <strong>A focused photo culling workspace for FRC competition photography</strong>
 </p>
 
 <p align="center">
   <a href="#download">Download</a> &middot;
   <a href="#features">Features</a> &middot;
-  <a href="#screenshot">Screenshot</a> &middot;
+  <a href="#see-the-workflow">Demo</a> &middot;
   <a href="#getting-started">Getting Started</a> &middot;
   <a href="#tech-stack">Tech Stack</a> &middot;
   <a href="#contributing">Contributing</a> &middot;
@@ -30,8 +30,8 @@
 
 An open-source desktop application built by volunteers of **[Fikret Yuksel Foundation](https://fikretyukselfoundation.org)**. Designed to help FRC (FIRST Robotics Competition) media teams quickly sort through hundreds of competition photos — keeping the best shots, detecting duplicates, and organizing everything automatically.
 
-> **Load your SD cards → AI scores every shot → cull with <kbd>K</kbd> <kbd>M</kbd> <kbd>R</kbd> → export, organized.**
-> A full competition day culled in minutes, not hours.
+> **Load your SD cards → review suggested picks → cull with <kbd>K</kbd> <kbd>M</kbd> <kbd>R</kbd> → export, organized.**
+> Local computer vision helps you sort. You make the final selection.
 
 ## Download
 
@@ -75,11 +75,40 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
 
 > **Auto-update:** The app automatically checks for new versions. You'll get an in-app notification when an update is available.
 
-## Screenshot
+## See the workflow
 
 <p align="center">
-  <img src="docs/screenshot-landing.png" alt="FYF Photo Culler — Landing Screen" width="680" />
+  <img src="docs/screenshot-review.png" alt="FYF Photo Culler contact sheet with 373 competition photos, suggested categories, quality scores and similar-shot groups" width="1100" />
 </p>
+
+**One competition. 373 photographs. A clear path from import to export.**
+
+<details>
+<summary><strong>Watch the guided walkthrough · about 27 seconds</strong></summary>
+
+<p align="center">
+  <img src="docs/demo/workflow.gif" alt="Guided walkthrough: import folders, review photos, inspect a frame, use M to mark Maybe, compare similar shots and export organized copies" width="1100" />
+</p>
+
+Actual interface captures and calculated scores from an FRC photo session. Analysis and export waits are shortened; demo decisions and export are simulated. This is a workflow demonstration, not a performance benchmark.
+
+</details>
+
+**Prefer to explore at your own pace?** [Download the interactive guide](docs/tutorial.html), then open the downloaded HTML file in your browser. It works offline, starts paused, and includes chapter navigation, play/pause and keyboard controls. GitHub displays the HTML source; use **Download raw file** to save it.
+
+| Step | What to try |
+|------|-------------|
+| Import | Add your camera folders; originals stay in place. |
+| Review | Inspect suggestions; use <kbd>K</kbd>, <kbd>M</kbd> and <kbd>R</kbd> to decide. |
+| Compare | Open a similar-shot group and compare candidates side by side. |
+| Export | Check the destination and counts, then copy every category into organized folders. |
+
+<details>
+<summary>View the import workspace</summary>
+
+<img src="docs/screenshot-landing.png" alt="FYF Photo Culler import workspace in Turkish, with folder selection and the four-step workflow" width="1100" />
+
+</details>
 
 ## Features
 
@@ -87,6 +116,8 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
 - **Technical quality scoring** — sharpness, exposure, contrast and EXIF combine into a 0–100 score for every photo
 - **Duplicate & burst detection** — perceptual hashing + SSIM catches exact duplicates; feature matching groups burst/similar shots and auto-picks the best frame
 - **Smart categorization** — every photo lands in Keep / Maybe / Reject before you touch anything
+
+The engine uses fixed scoring rules and pHash / SSIM / ORB comparisons, rather than a trained subject-aware model. Scores and picks are suggestions: a sharp background can hide a soft subject, and similar framing can contain different action. See the [algorithm audit](docs/algorithm-review.md) for reproduced limitations and the dataset results.
 
 ### Review at speed
 - **Keyboard-first culling** — arrow keys move focus, <kbd>K</kbd>/<kbd>M</kbd>/<kbd>R</kbd> decide and auto-advance to the next photo; no clicking required
@@ -100,8 +131,8 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
 - **Session resume** — close the app mid-cull; every decision is persisted and restored on the next launch
 - **Multi-folder input** — several cards at once, merged or per-folder output
 - **Organized export** — Keep / Maybe / Reject copied into tidy folders with live progress
-- **First-launch tour** — a 20-second animated walkthrough of the whole flow
-- **Dark & light mode, TR / EN** — glassmorphism UI with FYF brand colors
+- **On-demand walkthrough** — a keyboard-accessible, self-paced introduction without blocking the first import
+- **Dark & light mode, TR / EN** — neutral photo workspace with accessible focus, full-frame thumbnails, and responsive tools
 - **Cross-platform** — native desktop app for macOS (.dmg), Windows (.exe), and Linux (.deb / .AppImage)
 
 ## Getting Started
@@ -200,7 +231,7 @@ fyf-photo-culler/
 | <kbd>Enter</kbd> | Open the loupe (large view) |
 | <kbd>Z</kbd> | Zoom to full resolution in the loupe |
 | <kbd>Space</kbd> | Select / deselect the focused photo |
-| <kbd>A</kbd> | Select all in the current tab |
+| <kbd>A</kbd> | Select all loaded photos in the current view |
 | <kbd>C</kbd> | Compare selected (2–4) |
 | <kbd>⌘Z</kbd> / <kbd>⌘⇧Z</kbd> | Undo / Redo |
 | <kbd>?</kbd> | Show the shortcuts overlay |
