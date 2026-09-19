@@ -159,7 +159,7 @@ export function GroupPanel() {
           <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black/40 p-4">
             <img
               key={selected.id}
-              src={api.previewUrl(selected.id)}
+              src={api.previewUrl(selected.id, selected.image_version)}
               alt={selected.filename}
               decoding="async"
               className="max-h-[46vh] max-w-full object-contain drop-shadow-2xl"
@@ -192,7 +192,7 @@ export function GroupPanel() {
               >
                 <div className="relative aspect-[4/3] w-full bg-foreground/5">
                   <img
-                    src={api.thumbnailUrl(m.id)}
+                    src={api.thumbnailUrl(m.id, m.image_version)}
                     alt={m.filename}
                     className="h-full w-full object-cover"
                     loading="lazy"

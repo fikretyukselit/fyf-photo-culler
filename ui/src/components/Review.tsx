@@ -555,7 +555,7 @@ function PhotoCard({
         {/* Thumbnail */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-foreground/5">
           <img
-            src={api.thumbnailUrl(photo.id)}
+            src={api.thumbnailUrl(photo.id, photo.image_version)}
             alt={photo.filename}
             loading="lazy"
             decoding="async"
@@ -750,7 +750,7 @@ function PhotoDetail() {
         >
           <img
             key={photo.id}
-            src={api.previewUrl(photo.id)}
+            src={api.previewUrl(photo.id, photo.image_version)}
             alt={photo.filename}
             decoding="async"
             className="absolute inset-0 h-full w-full object-contain"
@@ -799,6 +799,12 @@ function PhotoDetail() {
               {t("detail.quality")}
             </span>
           </div>
+
+          {photo.focus_uncertain && (
+            <p className="rounded-lg border border-amber-400/25 bg-amber-400/10 p-3 text-xs leading-relaxed text-foreground">
+              {t("detail.focusUncertain")}
+            </p>
+          )}
 
           {/* Score breakdown */}
           <div className="space-y-2">

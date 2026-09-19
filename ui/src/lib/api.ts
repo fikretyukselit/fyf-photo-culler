@@ -91,16 +91,16 @@ class ApiClient {
     return this.request<{ folders: FolderInfo[] }>("/api/folders");
   }
 
-  thumbnailUrl(photoId: string): string {
-    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/thumbnail`;
+  thumbnailUrl(photoId: string, version?: string | null): string {
+    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/thumbnail?v=${encodeURIComponent(version ?? "unversioned")}`;
   }
 
-  previewUrl(photoId: string): string {
-    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/preview`;
+  previewUrl(photoId: string, version?: string | null): string {
+    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/preview?v=${encodeURIComponent(version ?? "unversioned")}`;
   }
 
-  fullUrl(photoId: string): string {
-    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/full`;
+  fullUrl(photoId: string, version?: string | null): string {
+    return `${this.baseUrl}/api/photos/${encodeURIComponent(photoId)}/full?v=${encodeURIComponent(version ?? "unversioned")}`;
   }
 
   async getPhoto(photoId: string) {
@@ -184,6 +184,8 @@ class ApiClient {
 
 interface Photo {
   id: string;
+  image_version?: string | null;
+  focus_uncertain?: boolean;
   filename: string;
   path: string;
   quality_score: number | null;

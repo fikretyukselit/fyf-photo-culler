@@ -34,7 +34,8 @@ let photos = Object.entries(data.analyses).map(([original, a], i) => {
     destination: data.destinations[original],
     tier: a.tier,
     quality_score: a.quality_score,
-    sharpness: a.sharpness_raw,
+    sharpness: Math.max(0, Math.min(100, a.sharpness_raw / 5)),
+    focus_uncertain: a.focus_uncertain ?? false,
     exposure: a.exposure,
     contrast: a.contrast,
     exif_score: a.exif_score,
@@ -173,12 +174,17 @@ await page.route("http://127.0.0.1:9470/**", async (route) => {
   if (match) {
     const p = photos.find((p) => p.id === match[1]);
     const hash = createHash("md5").update(p.original).digest("hex");
+    const derivative =
+      data.derivatives?.[p.original]?.[
+        match[2] === "thumbnail" ? "thumbnail" : "preview"
+      ];
     return route.fulfill({
       contentType: "image/jpeg",
       body: await fs.readFile(
         path.join(
           cache,
-          `${hash}${match[2] === "thumbnail" ? "" : ".preview"}.jpg`,
+          derivative ??
+            `${hash}${match[2] === "thumbnail" ? "" : ".preview"}.jpg`,
         ),
       ),
     });

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from culling.duplicates import detect_duplicates_and_similar
 from culling.technical import analyze_photo
+from culling.utils import thumbnail_cache_path, preview_cache_path
 
 
 def progress(stage, current, total):
@@ -90,6 +91,13 @@ def main():
     result = {
         "analyses": analyses,
         "destinations": destinations,
+        "derivatives": {
+            p: {
+                "thumbnail": Path(thumbnail_cache_path(p, str(cache))).name,
+                "preview": Path(preview_cache_path(p, str(cache))).name,
+            }
+            for p in analyses
+        },
         "groups": groups,
         "counts": dict(Counter(destinations.values())),
         "elapsed": round(time.monotonic() - started, 2),
@@ -101,7 +109,7 @@ def main():
         ),
     }
     (out / "dataset.json").write_text(json.dumps(result, indent=2))
-    private_keys = {"analyses", "destinations", "groups", "group_spans"}
+    private_keys = {"analyses", "destinations", "derivatives", "groups", "group_spans"}
     print(json.dumps({k: v for k, v in result.items() if k not in private_keys}, indent=2))
     print("Longest groups:", json.dumps(result["group_spans"][:5]))
 

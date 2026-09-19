@@ -77,7 +77,8 @@ export function Loupe() {
   useEffect(() => {
     if (!loupeOpen) return;
     for (const neighbor of [visible[idx + 1], visible[idx - 1]]) {
-      if (neighbor) new Image().src = api.previewUrl(neighbor.id);
+      if (neighbor)
+        new Image().src = api.previewUrl(neighbor.id, neighbor.image_version);
     }
   }, [loupeOpen, idx, visible]);
 
@@ -231,7 +232,7 @@ export function Loupe() {
         onPointerUp={handlePointerUp}
       >
         <img
-          src={api.previewUrl(photo.id)}
+          src={api.previewUrl(photo.id, photo.image_version)}
           alt={photo.filename}
           draggable={false}
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
@@ -240,7 +241,7 @@ export function Loupe() {
         {/* Full resolution only when zoomed in — fades in over the preview. */}
         {zoomed && (
           <img
-            src={api.fullUrl(photo.id)}
+            src={api.fullUrl(photo.id, photo.image_version)}
             alt=""
             draggable={false}
             onLoad={() => setFullLoaded(true)}
@@ -309,7 +310,7 @@ export function Loupe() {
               )}
             >
               <img
-                src={api.thumbnailUrl(p.id)}
+                src={api.thumbnailUrl(p.id, p.image_version)}
                 alt={p.filename}
                 loading="lazy"
                 decoding="async"

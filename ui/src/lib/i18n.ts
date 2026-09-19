@@ -56,6 +56,8 @@ const translations = {
     // Detail
     "detail.quality": "Quality Score",
     "detail.sharpness": "Sharpness",
+    "detail.focusUncertain":
+      "Sharp detail is limited to one region. Check the subject’s focus before deciding.",
     "detail.exposure": "Exposure",
     "detail.contrast": "Contrast",
     "detail.exifScore": "EXIF Score",
@@ -240,6 +242,8 @@ const translations = {
     // Detail
     "detail.quality": "Kalite puanı",
     "detail.sharpness": "Keskinlik",
+    "detail.focusUncertain":
+      "Net ayrıntılar tek bir bölgede yoğunlaşıyor. Karar vermeden önce ana konunun netliğini kontrol et.",
     "detail.exposure": "Pozlama",
     "detail.contrast": "Kontrast",
     "detail.exifScore": "EXIF puanı",

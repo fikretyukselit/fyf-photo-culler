@@ -11,7 +11,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from culling.duplicates import _build_groups, compute_phash, verify_feature_match
+from culling.duplicates import _select_groups, compute_phash, verify_feature_match
 from culling.technical import analyze_photo
 from culling.utils import generate_thumbnail
 
@@ -43,9 +43,11 @@ def main():
             "hash_distance": int(compute_phash(pa) - compute_phash(pb)),
             "orb_groups": bool(verify_feature_match([(pa, pb, 0)])),
         },
-        "transitive_group": sorted(next(iter(_build_groups(
-            [("a", "b"), ("b", "c")], ["a", "b", "c"]
-        )))),
+        "chain_rejections": _select_groups(
+            [], [("a", "b"), ("b", "c")], ["a", "b", "c"],
+            {p: {"quality_score": 90 - i * 10, "file_size": 1} for i, p in enumerate("abc")},
+            2.0,
+        )[0],
     }
     # One sharp corner, eight textureless tiles.
     single = np.full((300, 450, 3), 128, np.uint8)

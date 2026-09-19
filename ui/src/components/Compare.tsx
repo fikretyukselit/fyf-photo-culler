@@ -268,7 +268,7 @@ export function Compare() {
                 }}
               >
                 <img
-                  src={api.fullUrl(photo.id)}
+                  src={api.fullUrl(photo.id, photo.image_version)}
                   alt={photo.filename}
                   draggable={false}
                   className="pointer-events-none absolute inset-0 h-full w-full object-contain"
