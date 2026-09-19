@@ -149,83 +149,16 @@ jobs:
             echo "tag=${TAG}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Prepare stable README download assets
+        run: python3 scripts/prepare_release_downloads.py artifacts stable-downloads
+
       - name: Generate latest.json for auto-updater
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          BASE_URL="https://github.com/fikretyukselit/fyf-photo-culler/releases/download/${TAG}"
-
-          echo "=== Artifacts ==="
-          find artifacts -type f | sort
-          echo "================="
-
-          # Helper: find a single file by glob pattern and return its basename
-          find_asset() { basename "$(find artifacts -name "$1" ! -name "*.sig" | head -1)" 2>/dev/null || echo ""; }
-          read_sig() { cat "$(find artifacts -name "$1" | head -1)" 2>/dev/null || echo ""; }
-
-          # macOS updater tarballs (renamed with arch in build step)
-          MAC_ARM_TAR=$(find_asset "*_aarch64.app.tar.gz")
-          MAC_ARM_SIG=$(read_sig "*_aarch64.app.tar.gz.sig")
-          MAC_X64_TAR=$(find_asset "*_x64.app.tar.gz")
-          MAC_X64_SIG=$(read_sig "*_x64.app.tar.gz.sig")
-
-          # Windows & Linux
-          WIN_NSIS=$(find_asset "*-setup.exe")
-          WIN_NSIS_SIG=$(read_sig "*-setup.exe.sig")
-          LINUX_APPIMAGE=$(find_asset "*.AppImage")
-          LINUX_SIG=$(read_sig "*.AppImage.sig")
-
-          # Fail loud rather than publishing a latest.json with empty URLs/signatures,
-          # which would silently break auto-update for that platform.
-          MISSING=0
-          check_var() {
-            if [ -z "$2" ]; then
-              echo "::error::Missing updater artifact: $1 (glob matched nothing)"
-              MISSING=1
-            fi
-          }
-          check_var "macOS arm64 tarball" "$MAC_ARM_TAR"
-          check_var "macOS arm64 signature" "$MAC_ARM_SIG"
-          check_var "macOS x64 tarball" "$MAC_X64_TAR"
-          check_var "macOS x64 signature" "$MAC_X64_SIG"
-          check_var "Windows NSIS installer" "$WIN_NSIS"
-          check_var "Windows NSIS signature" "$WIN_NSIS_SIG"
-          check_var "Linux AppImage" "$LINUX_APPIMAGE"
-          check_var "Linux AppImage signature" "$LINUX_SIG"
-          if [ "$MISSING" -eq 1 ]; then
-            echo "::error::One or more required updater artifacts are missing. Aborting before publishing a broken latest.json."
-            exit 1
-          fi
-
-          cat > latest.json << ENDJSON
-          {
-            "version": "${VERSION}",
-            "notes": "FYF Photo Culler ${TAG}",
-            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "platforms": {
-              "darwin-aarch64": {
-                "url": "${BASE_URL}/${MAC_ARM_TAR}",
-                "signature": "${MAC_ARM_SIG}"
-              },
-              "darwin-x86_64": {
-                "url": "${BASE_URL}/${MAC_X64_TAR}",
-                "signature": "${MAC_X64_SIG}"
-              },
-              "windows-x86_64": {
-                "url": "${BASE_URL}/${WIN_NSIS}",
-                "signature": "${WIN_NSIS_SIG}"
-              },
-              "linux-x86_64": {
-                "url": "${BASE_URL}/${LINUX_APPIMAGE}",
-                "signature": "${LINUX_SIG}"
-              }
-            }
-          }
-          ENDJSON
-
-          echo "=== latest.json ==="
-          cat latest.json
-          echo "==================="
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: >-
+          python3 scripts/generate_updater_manifest.py artifacts latest.json
+          --tag "$RELEASE_TAG" --repository "$RELEASE_REPOSITORY"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -245,4 +178,5 @@ jobs:
             artifacts/**/*.rpm
             artifacts/**/*.AppImage
             artifacts/**/*.AppImage.sig
+            stable-downloads/*
             latest.json

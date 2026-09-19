@@ -124,6 +124,14 @@ const translations = {
     "update.install": "Update Now",
     "update.later": "Later",
     "update.downloading": "Downloading update...",
+    "update.installing": "Installing update...",
+    "update.restarting": "Restarting app...",
+    "update.installed": "Update installed",
+    "update.failed": "The update could not be installed.",
+    "update.restartFailed": "Automatic restart failed.",
+    "update.retry": "Retry update",
+    "update.restart": "Restart app",
+    "update.restartHint": "The update is installed. Close and reopen the app, or retry restarting.",
 
     // Backend connection
     "backend.connecting": "Connecting to the analysis engine...",
@@ -311,6 +319,14 @@ const translations = {
     "update.install": "Güncelle",
     "update.later": "Sonra",
     "update.downloading": "Güncelleme indiriliyor...",
+    "update.installing": "Güncelleme kuruluyor...",
+    "update.restarting": "Uygulama yeniden başlatılıyor...",
+    "update.installed": "Güncelleme kuruldu",
+    "update.failed": "Güncelleme kurulamadı.",
+    "update.restartFailed": "Otomatik yeniden başlatma başarısız.",
+    "update.retry": "Tekrar dene",
+    "update.restart": "Yeniden başlat",
+    "update.restartHint": "Güncelleme kuruldu. Uygulamayı kapatıp açabilir veya yeniden başlatmayı tekrar deneyebilirsin.",
 
     // Backend connection
     "backend.connecting": "Analiz motoruna bağlanılıyor...",
