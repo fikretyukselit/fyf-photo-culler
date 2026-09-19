@@ -1,4 +1,7 @@
 import logging
+from functools import lru_cache
+
+import numpy as np
 from typing import Dict, List, Optional, Set, Tuple
 
 import cv2
@@ -24,157 +27,254 @@ def compute_phash(path: str) -> imagehash.ImageHash:
         return imagehash.phash(img)
 
 
+class _HashIndex:
+    """BK-tree over Hamming distance; equal hashes share a bucket."""
+
+    def __init__(self):
+        self.root = None
+
+    def add(self, value: int, path: str) -> None:
+        if self.root is None:
+            self.root = (value, [path], {})
+            return
+        node = self.root
+        while True:
+            distance = bin(value ^ node[0]).count("1")
+            if distance == 0:
+                node[1].append(path)
+                return
+            child = node[2].get(distance)
+            if child is None:
+                node[2][distance] = (value, [path], {})
+                return
+            node = child
+
+    def query(self, value: int, threshold: int):
+        pending = [self.root] if self.root is not None else []
+        while pending:
+            node = pending.pop()
+            distance = bin(value ^ node[0]).count("1")
+            if distance <= threshold:
+                for path in node[1]:
+                    yield path, distance
+            lower, upper = distance - threshold, distance + threshold
+            pending.extend(child for edge, child in node[2].items() if lower <= edge <= upper)
+
+
 def find_pairs(hashes: Dict[str, imagehash.ImageHash],
                threshold: int,
                timestamps: Optional[Dict[str, Optional[float]]] = None,
                time_window: Optional[float] = None) -> List[Tuple[str, str, int]]:
-    """Find pairs within hamming distance threshold. Returns (p1, p2, distance).
+    """Find all qualifying pairs, without scanning every known-time pair.
 
-    When ``timestamps`` and ``time_window`` are both given, two photos that each
-    carry a capture timestamp and are more than ``time_window`` seconds apart are
-    skipped without comparing hashes. Photos missing a timestamp are always
-    compared, so behaviour is unchanged when timestamps are unavailable."""
-    paths = list(hashes.keys())
+    Timestamped bursts use a sorted sliding window. Missing-time photos are
+    queried against a Hamming index, as are global duplicate candidates.
+    The index is exact (no approximate-neighbor misses); dense hash neighborhoods
+    can still have quadratic output. Pair and traversal order are deterministic.
+    """
+    if threshold < 0:
+        return []
+    if time_window is not None and time_window < 0:
+        raise ValueError("time_window must be nonnegative")
+    values = {p: int(str(h), 16) for p, h in hashes.items()}
     pairs = []
-    for i in range(len(paths)):
-        for j in range(i + 1, len(paths)):
-            if timestamps is not None and time_window is not None:
-                t1 = timestamps.get(paths[i])
-                t2 = timestamps.get(paths[j])
-                if t1 is not None and t2 is not None and abs(t1 - t2) > time_window:
-                    continue
-            dist = hashes[paths[i]] - hashes[paths[j]]
-            if dist <= threshold:
-                pairs.append((paths[i], paths[j], dist))
+    index = _HashIndex()
+    if timestamps is None or time_window is None:
+        for path in sorted(values):
+            for other, distance in index.query(values[path], threshold):
+                pairs.append((other, path, distance))
+            index.add(values[path], path)
+        return pairs
+
+    known, missing = [], []
+    for path in sorted(values):
+        timestamp = timestamps.get(path)
+        if timestamp is None:
+            missing.append(path)
+        else:
+            known.append((timestamp, path))
+    known.sort()
+    left = 0
+    for right, (timestamp, path) in enumerate(known):
+        while left < right and timestamp - known[left][0] > time_window:
+            left += 1
+        for position in range(left, right):
+            other = known[position][1]
+            distance = bin(values[path] ^ values[other]).count("1")
+            if distance <= threshold:
+                pairs.append((other, path, distance))
+
+    # No timestamp means no temporal pruning, but still no all-pairs scan.
+    if missing:
+        for _, path in known:
+            index.add(values[path], path)
+        for path in missing:
+            for other, distance in index.query(values[path], threshold):
+                pairs.append((other, path, distance))
+            index.add(values[path], path)
     return pairs
 
 
+def _regional_match(img1: np.ndarray, img2: np.ndarray, threshold: float,
+                    valid: Optional[np.ndarray] = None) -> bool:
+    """Require local structure AND color agreement, not just a shared backdrop.
+
+    This is intentionally conservative: different action should survive review.
+    It does not claim to recognize faces or robots.
+    """
+    if img1.shape != img2.shape or min(img1.shape[:2]) < 16:
+        return False
+    gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+    _, similarity = ssim(gray1, gray2, data_range=255, full=True)
+    if valid is None:
+        valid = np.ones(gray1.shape, dtype=np.uint8)
+    if np.mean(valid > 0) < 0.9:
+        return False
+    # SSIM uses a 7px neighborhood; don't include warped/cropped boundaries.
+    mask = cv2.erode(valid.astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
+    if not np.any(mask) or float(similarity[mask].mean()) <= threshold:
+        return False
+    color_error = np.abs(img1.astype(np.float32) - img2.astype(np.float32)).mean(axis=2)
+    h, w = gray1.shape
+    for row in range(4):
+        for col in range(4):
+            region = np.s_[row * h // 4:(row + 1) * h // 4, col * w // 4:(col + 1) * w // 4]
+            local_mask = mask[region]
+            if np.mean(local_mask) < 0.5:
+                return False
+            if float(similarity[region][local_mask].mean()) < 0.90:
+                return False
+            if float(color_error[region][local_mask].mean()) > 12.0:
+                return False
+    return True
+
+
 def verify_ssim(candidates: List[Tuple[str, str, int]],
-                threshold: float, progress_callback=None) -> List[Tuple[str, str]]:
-    """Verify candidate pairs using SSIM."""
+                threshold: float, progress_callback=None,
+                image_loader=None) -> List[Tuple[str, str]]:
+    """Verify near-duplicates using global and regional structure/color."""
+    load = image_loader or lru_cache(maxsize=32)(lambda p: load_and_resize(p, max_edge=512))
     verified = []
     for i, (p1, p2, _) in enumerate(tqdm(candidates, desc="SSIM verification",
                                           disable=progress_callback is not None or len(candidates) < 5)):
-        img1 = load_and_resize(p1, max_edge=512)
-        img2 = load_and_resize(p2, max_edge=512)
-        if img1 is None or img2 is None:
-            continue
-        h = min(img1.shape[0], img2.shape[0])
-        w = min(img1.shape[1], img2.shape[1])
-        img1 = cv2.resize(img1, (w, h))
-        img2 = cv2.resize(img2, (w, h))
-        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-        score = ssim(gray1, gray2)
-        if score > threshold:
-            verified.append((p1, p2))
-        if progress_callback:
-            progress_callback("ssim_verification", i + 1, len(candidates))
+        try:
+            img1, img2 = load(p1), load(p2)
+            if img1 is None or img2 is None:
+                continue
+            # Don't distort different aspect ratios to force a duplicate match.
+            if abs(img1.shape[1] / img1.shape[0] - img2.shape[1] / img2.shape[0]) > 0.01:
+                continue
+            h, w = min(img1.shape[0], img2.shape[0]), min(img1.shape[1], img2.shape[1])
+            a, b = cv2.resize(img1, (w, h)), cv2.resize(img2, (w, h))
+            if _regional_match(a, b, threshold):
+                verified.append((p1, p2))
+        finally:
+            if progress_callback:
+                progress_callback("ssim_verification", i + 1, len(candidates))
     return verified
 
 
 def verify_feature_match(candidates: List[Tuple[str, str, int]],
                          min_match_ratio: float = 0.25,
-                         progress_callback=None) -> List[Tuple[str, str]]:
-    """Verify candidate pairs using ORB feature matching.
-    More robust to small camera shifts than SSIM."""
+                         progress_callback=None, image_loader=None) -> List[Tuple[str, str]]:
+    """Require a consistent camera transform plus regional visual agreement."""
     orb = cv2.ORB_create(nfeatures=1000)
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    verified = []
+    load = image_loader or lru_cache(maxsize=32)(lambda p: load_and_resize(p, max_edge=512))
 
+    @lru_cache(maxsize=32)
+    def features(path):
+        img = load(path)
+        if img is None:
+            return None, (), None
+        keypoints, descriptors = orb.detectAndCompute(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), None)
+        return img, keypoints, descriptors
+
+    verified = []
     for i, (p1, p2, _) in enumerate(tqdm(candidates, desc="Feature matching",
                                           disable=progress_callback is not None or len(candidates) < 5)):
-        img1 = load_and_resize(p1, max_edge=512)
-        img2 = load_and_resize(p2, max_edge=512)
-        if img1 is None or img2 is None:
-            continue
-        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-
-        kp1, des1 = orb.detectAndCompute(gray1, None)
-        kp2, des2 = orb.detectAndCompute(gray2, None)
-
-        if des1 is None or des2 is None or len(kp1) < 10 or len(kp2) < 10:
-            continue
-
-        matches = bf.match(des1, des2)
-        good = [m for m in matches if m.distance < 50]
-        ratio = len(good) / min(len(kp1), len(kp2))
-
-        if ratio > min_match_ratio:
-            verified.append((p1, p2))
-
-        if progress_callback:
-            progress_callback("feature_matching", i + 1, len(candidates))
-
+        try:
+            img1, kp1, des1 = features(p1)
+            img2, kp2, des2 = features(p2)
+            if des1 is None or des2 is None or min(len(kp1), len(kp2)) < 10:
+                continue
+            good = [m for m in bf.match(des1, des2) if m.distance < 50]
+            if len(good) < 10 or len(good) / min(len(kp1), len(kp2)) <= min_match_ratio:
+                continue
+            src = np.float32([kp1[m.queryIdx].pt for m in good])
+            dst = np.float32([kp2[m.trainIdx].pt for m in good])
+            transform, inliers = cv2.estimateAffinePartial2D(
+                src, dst, method=cv2.RANSAC, ransacReprojThreshold=3.0,
+            )
+            if transform is None or inliers is None or np.mean(inliers) < 0.6:
+                continue
+            scale = float(np.hypot(transform[0, 0], transform[1, 0]))
+            if not 0.85 <= scale <= 1.15:
+                continue
+            h, w = img2.shape[:2]
+            aligned = cv2.warpAffine(img1, transform, (w, h))
+            valid = cv2.warpAffine(np.ones(img1.shape[:2], np.uint8), transform, (w, h), flags=cv2.INTER_NEAREST)
+            if _regional_match(aligned, img2, threshold=0.92, valid=valid):
+                verified.append((p1, p2))
+        finally:
+            if progress_callback:
+                progress_callback("feature_matching", i + 1, len(candidates))
     return verified
 
 
-def _build_groups(pairs: List[Tuple[str, str]], all_paths: List[str]) -> List[Set[str]]:
-    parent = {p: p for p in all_paths}
-
-    def find(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a, b):
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
-
-    for a, b in pairs:
-        union(a, b)
-
-    groups = {}
-    for p in all_paths:
-        root = find(p)
-        if root not in groups:
-            groups[root] = set()
-        groups[root].add(p)
-
-    return [g for g in groups.values() if len(g) > 1]
+def _quality_key(path: str, analyses: Dict[str, dict]) -> tuple:
+    analysis = analyses.get(path, {})
+    return (analysis.get("quality_score", 0), analysis.get("file_size", 0), path)
 
 
 def select_best_from_group(group: list, analyses: Dict[str, dict]) -> str:
-    return max(group, key=lambda p: (analyses[p]["quality_score"], analyses[p]["file_size"]))
+    return max(group, key=lambda p: _quality_key(p, analyses))
 
 
-def _assemble_display_groups(
-    pairs: List[Tuple[str, str]],
-    all_paths: List[str],
-    reject: Dict[str, str],
-    analyses: Dict[str, dict],
-) -> List[dict]:
-    """Union-find over every verified pair to produce display groups.
+def _select_groups(exact_pairs, similar_pairs, paths, analyses, time_window):
+    """Partition verified edges around deterministic, retained representatives.
 
-    Each photo lands in at most one group. A group's ``kind`` is "duplicate" if
-    any member was rejected as a duplicate, otherwise "similar". ``best`` is the
-    highest-scoring member that was not rejected (falling back to the overall
-    highest-scoring member). Members are ordered by descending quality score,
-    ties broken by path. Groups are ordered by their minimum member path and
-    numbered from 1."""
-    raw_groups = _build_groups(pairs, all_paths)
-
-    def sort_key(p):
-        a = analyses.get(p, {})
-        return (a.get("quality_score", 0), a.get("file_size", 0), p)
-
-    ordered = sorted(raw_groups, key=lambda g: min(g))
-    groups = []
-    for idx, group in enumerate(ordered, start=1):
-        members = sorted(group, key=sort_key, reverse=True)
-        kind = "duplicate" if any(reject.get(p) == "duplicate" for p in members) else "similar"
-        kept = [p for p in members if p not in reject]
-        best = max(kept, key=sort_key) if kept else max(members, key=sort_key)
-        groups.append({
-            "id": f"g{idx:04d}",
-            "kind": kind,
-            "members": members,
-            "best": best,
-        })
-    return groups
+    Every rejection has a directly verified edge to its group's best. Burst
+    members also share a bounded capture-time span. Actual duplicate edges are
+    independent of capture time (e.g. copied/re-exported files on other cards).
+    """
+    neighbors = {p: {} for p in paths}
+    for kind, pairs in (("similar", similar_pairs), ("duplicate", exact_pairs)):
+        for a, b in pairs:
+            neighbors[a][b] = kind
+            neighbors[b][a] = kind
+    assigned, reject, groups = set(), {}, []
+    for best in sorted(paths, key=lambda p: _quality_key(p, analyses), reverse=True):
+        if best in assigned:
+            continue
+        assigned.add(best)
+        members = [best]
+        timestamp = analyses[best].get("datetime_original")
+        times = [timestamp] if timestamp is not None else []
+        for member in sorted(neighbors[best], key=lambda p: _quality_key(p, analyses), reverse=True):
+            if member in assigned:
+                continue
+            kind = neighbors[best][member]
+            timestamp = analyses[member].get("datetime_original")
+            if kind == "similar" and timestamp is not None:
+                proposed = times + [timestamp]
+                if time_window is not None and max(proposed) - min(proposed) > time_window:
+                    continue
+                times = proposed
+            assigned.add(member)
+            members.append(member)
+            reject[member] = kind
+        if len(members) > 1:
+            groups.append({
+                "kind": "duplicate" if any(reject.get(p) == "duplicate" for p in members) else "similar",
+                "members": members,
+                "best": best,
+            })
+    groups.sort(key=lambda group: min(group["members"]))
+    for index, group in enumerate(groups, 1):
+        group["id"] = f"g{index:04d}"
+    return reject, groups
 
 
 def detect_duplicates_and_similar(
@@ -182,74 +282,42 @@ def detect_duplicates_and_similar(
     progress_callback=None,
     time_window: Optional[float] = BURST_TIME_WINDOW,
 ) -> Tuple[Set[str], Dict[str, str], List[dict]]:
-    """Two-pass detection:
-      1. Exact duplicates: pHash ≤ 5, SSIM > 0.95 → reject/duplicate
-      2. Burst/similar:    pHash ≤ 20, ORB feature match > 0.25 → reject/similar (best kept)
+    """Global near-duplicate search, then time-bounded burst verification.
 
-    When photos carry a capture timestamp (``analyses[p]["datetime_original"]``)
-    candidate pairs more than ``time_window`` seconds apart are pruned before
-    comparison. Pass ``time_window=None`` to disable this pruning.
-
-    Returns (keep_set, reject_dict mapping path -> 'duplicate'|'similar',
-    display_groups). Display groups union both passes so each photo appears in
-    at most one group; see ``_assemble_display_groups`` for their shape.
+    pHash candidates are verified with local structure/color agreement; burst
+    matches additionally require geometric alignment. Only direct matches to a
+    retained representative are rejected. No transitive similarity rejection.
     """
+    paths = sorted(set(paths))
     logger.info("Computing perceptual hashes...")
     hashes = {}
-    for i, p in enumerate(tqdm(paths, desc="Hashing", disable=progress_callback is not None)):
+    for i, path in enumerate(tqdm(paths, desc="Hashing", disable=progress_callback is not None)):
         try:
-            hashes[p] = compute_phash(p)
+            hashes[path] = compute_phash(path)
         except Exception as e:
-            logger.warning(f"Could not hash {p}: {e}")
+            logger.warning(f"Could not hash {path}: {e}")
         if progress_callback:
             progress_callback("hashing", i + 1, len(paths))
 
-    timestamps = {p: analyses[p].get("datetime_original") for p in paths if p in analyses}
-
-    reject = {}
-    verified_pairs: List[Tuple[str, str]] = []
-
-    # Pass 1: Exact duplicates
-    logger.info("Pass 1: Finding exact duplicates (pHash ≤ 5, SSIM > 0.95)...")
-    exact_candidates = find_pairs(hashes, threshold=5,
-                                  timestamps=timestamps, time_window=time_window)
-    logger.info(f"  {len(exact_candidates)} candidate pairs")
-    if exact_candidates:
-        exact_verified = verify_ssim(exact_candidates, threshold=0.95,
-                                     progress_callback=progress_callback)
-        logger.info(f"  {len(exact_verified)} confirmed duplicates")
-        if exact_verified:
-            verified_pairs.extend(exact_verified)
-            groups = _build_groups(exact_verified, list(hashes.keys()))
-            for group in groups:
-                best = select_best_from_group(list(group), analyses)
-                for p in group:
-                    if p != best:
-                        reject[p] = "duplicate"
-
-    # Pass 2: Burst/similar (same photographer, same moment, slight shift)
-    remaining = [p for p in paths if p not in reject]
-    remaining_hashes = {p: hashes[p] for p in remaining if p in hashes}
-
-    logger.info("Pass 2: Finding burst/similar shots (pHash ≤ 20, feature match)...")
-    similar_candidates = find_pairs(remaining_hashes, threshold=20,
-                                    timestamps=timestamps, time_window=time_window)
-    logger.info(f"  {len(similar_candidates)} candidate pairs")
-    if similar_candidates:
-        similar_verified = verify_feature_match(similar_candidates, min_match_ratio=0.25,
-                                                progress_callback=progress_callback)
-        logger.info(f"  {len(similar_verified)} confirmed similar pairs")
-        if similar_verified:
-            verified_pairs.extend(similar_verified)
-            groups = _build_groups(similar_verified, remaining)
-            for group in groups:
-                best = select_best_from_group(list(group), analyses)
-                for p in group:
-                    if p != best:
-                        reject[p] = "similar"
-
-    display_groups = _assemble_display_groups(verified_pairs, list(paths), reject, analyses)
-
-    keep = set(paths) - set(reject.keys())
-    logger.info(f"Result: {len(keep)} keep, {sum(1 for v in reject.values() if v == 'duplicate')} duplicates, {sum(1 for v in reject.values() if v == 'similar')} similar")
-    return keep, reject, display_groups
+    # Bounded and scoped to this run: reused across both verification passes.
+    load = lru_cache(maxsize=32)(lambda p: load_and_resize(p, max_edge=512))
+    timestamps = {p: analyses[p].get("datetime_original") for p in paths}
+    exact_candidates = find_pairs(hashes, threshold=5)
+    logger.info(f"Pass 1: {len(exact_candidates)} global duplicate candidate pairs")
+    exact_verified = verify_ssim(
+        exact_candidates, threshold=0.95, progress_callback=progress_callback, image_loader=load,
+    )
+    exact_edges = {frozenset(pair) for pair in exact_verified}
+    similar_candidates = [
+        (a, b, distance)
+        for a, b, distance in find_pairs(hashes, threshold=20, timestamps=timestamps, time_window=time_window)
+        if frozenset((a, b)) not in exact_edges
+    ]
+    logger.info(f"Pass 2: {len(similar_candidates)} burst candidate pairs")
+    similar_verified = verify_feature_match(
+        similar_candidates, progress_callback=progress_callback, image_loader=load,
+    )
+    reject, groups = _select_groups(exact_verified, similar_verified, paths, analyses, time_window)
+    keep = set(paths) - set(reject)
+    logger.info(f"Result: {len(keep)} keep, {sum(v == 'duplicate' for v in reject.values())} duplicates, {sum(v == 'similar' for v in reject.values())} similar")
+    return keep, reject, groups

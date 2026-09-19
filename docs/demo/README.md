@@ -10,6 +10,8 @@ Captured from the actual React interface using the user-supplied, 373-photo FRC 
 
 The walkthrough shortens analysis and export waits. It is not a speed benchmark. Source photographs and generated analysis/cache files are not checked in.
 
+These assets were captured for PR #9, before the algorithm corrections documented in [the audit](../algorithm-review.md). They illustrate the workflow; their category counts reflect that capture, not the updated engine.
+
 ## Regenerate
 
 Use a photo dataset you have permission to include in public documentation. From the repository root, with project dependencies and Playwright Chromium installed:

@@ -1,6 +1,31 @@
 # Culling engine audit
 
-Reviewed 20 September 2026. This audit does not change scoring or rejection rules.
+Baseline reviewed 20 September 2026 and published with PR #9. The original findings below are preserved as evidence; the subsequent fixes are summarized here.
+
+## Implemented corrections
+
+- **Focus:** use the harmonic mean of the two strongest regions. One extreme tile no longer dominates. If only one region clears the blur threshold, classify the photo as Maybe for human review, rather than automatically rejecting a potentially small subject. The probe now scores **38.35** instead of 91.18. The inspector explains uncertain focus and displays normalized 0–100 sharpness.
+- **Similarity:** require RANSAC-consistent camera alignment, sufficient overlap, and agreement in local structure and color. The shared-background/different-subject probe is no longer accepted. Equal-luminance but different-color images are not duplicates either. Exact-duplicate verification also checks local color and structure.
+- **Groups:** every rejected member must have a verified match to the retained representative. Similar members must fit within the group's two-second capture span. Ties use a stable path ordering. Genuine duplicate edges remain independent of timestamps, so copies across cards can be found.
+- **Cache:** derivative filenames and frontend image URLs include a source version derived from file size, nanosecond modification/change times and inode. Writes are atomic and failed writes are not published. Only URLs matching the current source version get immutable browser caching; other URLs must revalidate.
+- **Candidate search:** known timestamps use a sorted sliding window. Global duplicate search and missing-time candidates use an exact Hamming-distance index. Verification images and ORB features have bounded per-run caches. Dense candidate sets can still require quadratic work; no approximate search drops qualifying pairs.
+
+### Same-dataset check after fixes
+
+| Decision | Baseline | After fixes |
+|---|---:|---:|
+| Keep | 279 | 332 |
+| Maybe | 15 | 23 |
+| Blurry | 20 | 17 |
+| Similar | 59 | 1 |
+
+All **373** files were analyzed. Three previously blurry photos now require human focus review. Of 59 formerly similar rejections, 56 are retained and two go to Maybe; one pair passes the stricter verification. That group's span is **0.92 seconds**, with a direct verified match to its representative. The run took **88.60 seconds**; the earlier run took 90.56 seconds, but cache/system differences make this unsuitable as a speedup claim.
+
+This is a deliberate tradeoff: more manual review in exchange for less aggressive automatic rejection. Synthetic regressions prove the reported failure modes are fixed, **not** that photographic selection is now perfect. Small expression/action changes and sharp backgrounds can still need human judgment; this remains a computer-vision heuristic without semantic subject recognition. Human-labeled precision/recall evaluation remains future work.
+
+The README GIF preserves the reviewed UI demonstration captured before these algorithm changes; its category counts are historical, not the current engine's result.
+
+Local validation: **101 Python tests**, **10 Playwright tests**, Ruff's pyflakes checks, and the TypeScript/Vite production build passed. Regressions cover changed-source pixels and URLs, failed derivative writes, isolated sharp regions, shared backgrounds, equal-luminance color changes, global duplicates, bounded groups, stable best picks, and indexed candidate parity with brute-force results.
 
 ## Evidence from the supplied dataset
 
@@ -18,7 +43,7 @@ Elapsed wall time was 90.56 seconds on the local development machine, using four
 
 These counts are **not accuracy measurements**. There are no human reference labels in this dataset. In particular, this audit does not establish that the 20 blurry or 59 similar decisions are correct or incorrect.
 
-## Findings, in recommended order
+## Original findings
 
 ### 1. A sharp background can dominate the quality score
 

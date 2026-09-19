@@ -6,7 +6,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from culling.utils import load_and_resize, extract_exif, save_derivatives_from_image
+from culling.utils import load_and_resize, extract_exif, save_derivatives_from_image, source_version
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,18 @@ DARK_RATIO_THRESHOLD = 0.85
 BRIGHT_RATIO_THRESHOLD = 0.80
 
 
-def compute_sharpness(img: np.ndarray) -> float:
-    """3x3 grid Laplacian variance, returning the average of the top-2 sharpest tiles.
-    This catches off-center subjects (rule-of-thirds) while requiring two distinct
-    sharp regions — robust against single-tile anomalies like scoreboards."""
+def _sharpness_evidence(img: np.ndarray) -> tuple:
+    """Return robust regional focus and the strongest individual region.
+
+    A harmonic mean limits the influence of a single extreme tile. The peak is
+    kept separately so small/off-center subjects are sent for review, not rejected.
+    This remains a regional heuristic, not subject detection.
+    """
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     if h < 3 or w < 3:
-        return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        value = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        return value, value
     tile_h, tile_w = h // 3, w // 3
     variances = []
     for row in range(3):
@@ -46,7 +50,14 @@ def compute_sharpness(img: np.ndarray) -> float:
             tile = gray[y1:y2, x1:x2]
             variances.append(float(cv2.Laplacian(tile, cv2.CV_64F).var()))
     variances.sort(reverse=True)
-    return (variances[0] + variances[1]) / 2.0
+    first, second = variances[:2]
+    robust = 2.0 * first * second / (first + second) if first + second else 0.0
+    return robust, first
+
+
+def compute_sharpness(img: np.ndarray) -> float:
+    """Harmonic mean of the two strongest 3×3 regional Laplacian variances."""
+    return _sharpness_evidence(img)[0]
 
 
 def compute_exposure(img: np.ndarray) -> float:
@@ -93,10 +104,15 @@ def compute_exif_score(exif: dict) -> Optional[float]:
     return sum(scores) / len(scores) if scores else None
 
 
+def normalize_sharpness(sharpness_raw: float) -> float:
+    """Map raw regional variance to the 0–100 quality-score component."""
+    return max(0.0, min(100.0, sharpness_raw / 500 * 100))
+
+
 def compute_quality_score(sharpness_raw: float, exposure: float, contrast: float,
                           exif_score: Optional[float]) -> float:
     """Weighted quality score 0-100. sharpness_raw is raw Laplacian variance."""
-    sharp_norm = min(100, sharpness_raw / 500 * 100)
+    sharp_norm = normalize_sharpness(sharpness_raw)
 
     if exif_score is not None:
         return (sharp_norm * W_SHARPNESS + exposure * W_EXPOSURE +
@@ -144,18 +160,19 @@ def analyze_photo(
     When ``thumbnail_dir`` is given, the grid thumbnail and detail preview are
     written from the image decoded here — the review UI then never has to
     decode full-resolution files on demand."""
+    version = source_version(path)
     img = load_and_resize(path, max_edge=1024)
     if img is None:
         return None
 
     if thumbnail_dir:
         try:
-            save_derivatives_from_image(img, path, thumbnail_dir)
+            save_derivatives_from_image(img, path, thumbnail_dir, expected_version=version)
         except Exception as e:
             # Derivatives are an optimization; never fail analysis over them.
             logger.warning(f"Could not write derivatives for {path}: {e}")
 
-    sharpness_raw = compute_sharpness(img)
+    sharpness_raw, sharpness_peak = _sharpness_evidence(img)
     exposure = compute_exposure(img)
     contrast = compute_contrast(img)
     exif = extract_exif(path)
@@ -170,8 +187,9 @@ def analyze_photo(
 
     auto_reject = False
     reject_reason = None
+    focus_uncertain = sharpness_raw < effective_blur_threshold <= sharpness_peak
 
-    if sharpness_raw < effective_blur_threshold:
+    if sharpness_raw < effective_blur_threshold and not focus_uncertain:
         auto_reject = True
         reject_reason = "blurry"
 
@@ -185,6 +203,8 @@ def analyze_photo(
 
     quality_score = compute_quality_score(sharpness_raw, exposure, contrast, exif_score)
     tier = classify_tier(quality_score, auto_reject)
+    if focus_uncertain and not auto_reject:
+        tier = "marginal"
 
     return {
         "path": path,
@@ -193,6 +213,8 @@ def analyze_photo(
         "auto_reject": auto_reject,
         "reject_reason": reject_reason,
         "sharpness_raw": round(sharpness_raw, 2),
+        "sharpness_peak": round(sharpness_peak, 2),
+        "focus_uncertain": focus_uncertain,
         "exposure": round(exposure, 2),
         "contrast": round(contrast, 2),
         "exif_score": round(exif_score, 2) if exif_score is not None else None,

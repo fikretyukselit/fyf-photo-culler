@@ -2,6 +2,7 @@
 folder/sort query params on /api/photos."""
 
 import base64
+import io
 import os
 import sys
 
@@ -72,6 +73,17 @@ def clean_state(tmp_path):
 
 
 class TestDerivatives:
+    def test_failed_image_write_does_not_publish_a_cache_entry(self, tmp_path, monkeypatch):
+        import cv2
+
+        photo = _write_jpeg(str(tmp_path / "source.jpg"))
+        cache = str(tmp_path / "cache")
+        monkeypatch.setattr(cv2, "imwrite", lambda *args: False)
+        with pytest.raises(OSError):
+            generate_preview(photo, cache)
+        assert not os.path.exists(preview_cache_path(photo, cache))
+        assert list((tmp_path / "cache").iterdir()) == []
+
     def test_save_derivatives_writes_thumb_and_preview(self, tmp_path):
         import numpy as np
 
@@ -123,14 +135,14 @@ class TestDerivatives:
 
 
 class TestImageCaching:
-    def test_thumbnail_has_immutable_cache_headers_and_etag(self, tmp_path):
+    def test_unversioned_thumbnail_revalidates_and_has_etag(self, tmp_path):
         photo = _write_jpeg(str(tmp_path / "src" / "img.jpg"))
         _analysis(photo)
 
         res = client.get(f"/api/photos/{_encode_id(photo)}/thumbnail")
 
         assert res.status_code == 200
-        assert res.headers["cache-control"] == "max-age=31536000, immutable"
+        assert res.headers["cache-control"] == "no-cache"
         assert res.headers.get("etag")
 
     def test_if_none_match_returns_304(self, tmp_path):
@@ -155,7 +167,7 @@ class TestImageCaching:
 
         assert res.status_code == 200
         assert res.headers["content-type"] == "image/jpeg"
-        assert res.headers["cache-control"] == "max-age=31536000, immutable"
+        assert res.headers["cache-control"] == "no-cache"
 
     def test_full_image_gets_cache_headers(self, tmp_path):
         photo = _write_jpeg(str(tmp_path / "src" / "img.jpg"))
@@ -164,10 +176,54 @@ class TestImageCaching:
         res = client.get(f"/api/photos/{_encode_id(photo)}/full")
 
         assert res.status_code == 200
-        assert res.headers["cache-control"] == "max-age=31536000, immutable"
+        assert res.headers["cache-control"] == "no-cache"
+
+    @pytest.mark.parametrize("kind", ["thumbnail", "preview", "full"])
+    def test_replacing_source_refreshes_pixels_and_browser_version(self, tmp_path, kind):
+        photo = str(tmp_path / "reused-name.jpg")
+        Image.new("RGB", (80, 60), "red").save(photo)
+        _analysis(photo)
+        pid = _encode_id(photo)
+        first_version = client.get(f"/api/photos/{pid}").json().get("image_version")
+        assert first_version, "Photo responses must version their image URLs"
+        url = f"/api/photos/{pid}/{kind}"
+        first = client.get(url, params={"v": first_version})
+        assert first.headers["cache-control"] == "max-age=31536000, immutable"
+        old_stat = os.stat(photo)
+        Image.new("RGB", (80, 60), "blue").save(photo)
+        os.utime(photo, ns=(old_stat.st_atime_ns, old_stat.st_mtime_ns + 1_000_000))
+
+        second_version = client.get(f"/api/photos/{pid}").json()["image_version"]
+        assert second_version != first_version
+        second = client.get(url, params={"v": second_version}, headers={"If-None-Match": first.headers["etag"]})
+        assert second.status_code == 200
+        with Image.open(io.BytesIO(second.content)) as image:
+            r, _, b = image.getpixel((20, 20))
+            assert b > 240 and r < 10
+        stale_url = client.get(url, params={"v": first_version})
+        assert "immutable" not in stale_url.headers["cache-control"]
+
+    def test_reanalysis_replaces_existing_derivatives(self, tmp_path):
+        photo = str(tmp_path / "same.jpg")
+        cache = str(tmp_path / "cache")
+        Image.new("RGB", (80, 60), "red").save(photo)
+        analyze_photo(photo, thumbnail_dir=cache)
+        Image.new("RGB", (80, 60), "blue").save(photo)
+        analyze_photo(photo, thumbnail_dir=cache)
+        for derivative in (thumbnail_cache_path(photo, cache), preview_cache_path(photo, cache)):
+            with Image.open(derivative) as image:
+                r, _, b = image.getpixel((20, 20))
+                assert b > 240 and r < 10
 
 
 class TestFolderParam:
+    def test_detail_sharpness_uses_the_same_scale_as_quality_scoring(self):
+        _analysis("/cards/test.jpg")  # raw Laplacian variance is 200, not 200%.
+        state.analyses["/cards/test.jpg"]["focus_uncertain"] = True
+        detail = client.get(f"/api/photos/{_encode_id('/cards/test.jpg')}").json()
+        assert detail["sharpness"] == 40.0
+        assert detail["focus_uncertain"] is True
+
     def _seed_two_cards(self):
         state.input_folders = ["/cards/sd1", "/cards/sd2"]
         _analysis("/cards/sd1/a.jpg", score=90)

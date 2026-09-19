@@ -12,6 +12,7 @@ from culling.technical import (
     compute_sharpness,
     compute_exposure,
     compute_quality_score,
+    analyze_photo,
     classify_tier,
     BLUR_THRESHOLD,
     BLUR_THRESHOLD_SHALLOW_DOF,
@@ -70,6 +71,27 @@ def _off_center_subject_image(h: int = 300, w: int = 450) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 class TestComputeSharpness:
+    def test_one_extreme_tile_cannot_claim_reliable_focus(self, tmp_path):
+        gray = np.full((300, 450), 128, dtype=np.uint8)
+        gray[:100, :150] = np.where(np.indices((100, 150))[0] % 4 < 2, 255, 0)
+        img = _make_bgr(gray)
+        assert compute_sharpness(img) < BLUR_THRESHOLD
+        photo = str(tmp_path / "one-sharp-corner.jpg")
+        cv2.imwrite(photo, img)
+        result = analyze_photo(photo)
+        # A small genuine subject could also occupy one tile: ask for review,
+        # rather than calling it confidently good or automatically blurry.
+        assert result["tier"] == "marginal"
+        assert result["focus_uncertain"] is True
+        assert result["auto_reject"] is False
+
+    def test_uniform_image_is_still_automatically_blurry(self, tmp_path):
+        photo = str(tmp_path / "blurred.jpg")
+        cv2.imwrite(photo, _uniform_image())
+        result = analyze_photo(photo)
+        assert result["auto_reject"] is True
+        assert result["reject_reason"] == "blurry"
+
     def test_uniform_image_near_zero(self):
         """A uniform image has no edges → sharpness should be near 0."""
         img = _uniform_image(128)

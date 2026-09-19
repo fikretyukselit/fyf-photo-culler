@@ -2,6 +2,8 @@ import datetime
 import os
 import logging
 import shutil
+import hashlib
+import tempfile
 from typing import Optional
 
 import cv2
@@ -153,9 +155,22 @@ THUMB_MAX_EDGE = 320
 PREVIEW_MAX_EDGE = 1024
 
 
+def source_version(path: str) -> Optional[str]:
+    """Cheap source identity shared by disk derivatives and browser URLs.
+
+    ctime/inode also invalidate replacements that preserve size and mtime.
+    This is a cache version, not a cryptographic content fingerprint.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    identity = f"v2:{st.st_size}:{st.st_mtime_ns}:{st.st_ctime_ns}:{st.st_ino}"
+    return hashlib.sha256(identity.encode()).hexdigest()[:24]
+
+
 def _cache_key(path: str) -> str:
-    import hashlib
-    return hashlib.md5(path.encode()).hexdigest()
+    return f"{hashlib.md5(path.encode()).hexdigest()}-{source_version(path) or 'missing'}"
 
 
 def thumbnail_cache_path(path: str, cache_dir: str) -> str:
@@ -176,41 +191,57 @@ def _shrink_to(img: np.ndarray, max_edge: int) -> np.ndarray:
     )
 
 
-def save_derivatives_from_image(img: np.ndarray, path: str, cache_dir: str) -> None:
+def _write_jpeg_atomic(path: str, img: np.ndarray) -> None:
+    """Readers see either a complete JPEG or no file, including under concurrency."""
+    fd, temporary = tempfile.mkstemp(suffix=".jpg", dir=os.path.dirname(path))
+    os.close(fd)
+    try:
+        if not cv2.imwrite(temporary, img, [cv2.IMWRITE_JPEG_QUALITY, 85]):
+            raise OSError(f"Could not write image derivative: {path}")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def save_derivatives_from_image(
+    img: np.ndarray, path: str, cache_dir: str, expected_version: Optional[str] = None,
+) -> None:
     """Write the thumbnail and preview for ``path`` from an already-decoded
-    image (skipping any that exist). Called during analysis, where the image
+    image (skipping current versions that exist). Called during analysis, where the image
     is in memory anyway — avoids a second full-resolution decode later."""
     os.makedirs(cache_dir, exist_ok=True)
+    if expected_version is not None and source_version(path) != expected_version:
+        raise ValueError("Source changed during analysis; derivatives were not cached")
     preview_path = preview_cache_path(path, cache_dir)
-    if not os.path.exists(preview_path):
-        cv2.imwrite(
-            preview_path,
-            _shrink_to(img, PREVIEW_MAX_EDGE),
-            [cv2.IMWRITE_JPEG_QUALITY, 85],
-        )
     thumb_path = thumbnail_cache_path(path, cache_dir)
+    if expected_version is not None and source_version(path) != expected_version:
+        raise ValueError("Source changed during analysis; derivatives were not cached")
+    if not os.path.exists(preview_path):
+        _write_jpeg_atomic(preview_path, _shrink_to(img, PREVIEW_MAX_EDGE))
     if not os.path.exists(thumb_path):
-        cv2.imwrite(
-            thumb_path,
-            _shrink_to(img, THUMB_MAX_EDGE),
-            [cv2.IMWRITE_JPEG_QUALITY, 85],
-        )
+        _write_jpeg_atomic(thumb_path, _shrink_to(img, THUMB_MAX_EDGE))
 
 
 def _generate_derivative(path: str, cache_path: str, max_edge: int) -> str:
+    version = source_version(path)
+    if not os.path.basename(cache_path).startswith(f"{_cache_key(path)}."):
+        raise ValueError("Source changed before derivative generation")
     if os.path.exists(cache_path):
         return cache_path
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     img = load_and_resize(path, max_edge=max_edge)
     if img is None:
         raise ValueError(f"Could not load image: {path}")
-    cv2.imwrite(cache_path, img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    if source_version(path) != version:
+        raise ValueError("Source changed during derivative generation")
+    _write_jpeg_atomic(cache_path, img)
     return cache_path
 
 
 def generate_thumbnail(path: str, cache_dir: str, max_edge: int = THUMB_MAX_EDGE) -> str:
     """Return the cached thumbnail for ``path``, generating it on demand.
-    Cache key is MD5 hash of the original file path."""
+    Cache key includes the path and source version."""
     return _generate_derivative(path, thumbnail_cache_path(path, cache_dir), max_edge)
 
 

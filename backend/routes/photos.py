@@ -7,6 +7,8 @@ from fastapi.responses import FileResponse, Response
 
 from backend.state import state
 from backend.thumbnail import get_thumbnail, get_preview
+from culling.utils import source_version
+from culling.technical import normalize_sharpness
 
 router = APIRouter()
 
@@ -22,18 +24,15 @@ def _decode_id(photo_id: str) -> str:
 def _source_etag(path: str) -> Optional[str]:
     """ETag derived from the ORIGINAL file's identity — derivatives regenerated
     from the same original are byte-equivalent for caching purposes."""
-    try:
-        st = os.stat(path)
-        return f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
-    except OSError:
-        return None
+    version = source_version(path)
+    return f'"{version}"' if version else None
 
 
 def _cached_image_response(request: Request, serve_path: str, source_path: str) -> Response:
-    """Serve an image with immutable caching keyed to the source file, so the
-    webview never refetches thumbnails while scrolling."""
+    """Only current, explicitly versioned URLs may be cached immutably."""
     etag = _source_etag(source_path)
-    headers = {"Cache-Control": "max-age=31536000, immutable"}
+    version_matches = bool(etag and request.query_params.get("v") == etag.strip('"'))
+    headers = {"Cache-Control": "max-age=31536000, immutable" if version_matches else "no-cache"}
     if etag:
         headers["ETag"] = etag
         if request.headers.get("if-none-match") == etag:
@@ -64,10 +63,12 @@ def _photo_entry(path: str, analysis: dict) -> dict:
         "id": _encode_id(path),
         "filename": os.path.basename(path),
         "path": path,
+        "image_version": source_version(path),
         "quality_score": analysis.get("quality_score"),
         "tier": analysis.get("tier"),
         "destination": _effective_destination(path),
-        "sharpness": analysis.get("sharpness_raw"),
+        "sharpness": normalize_sharpness(analysis["sharpness_raw"]) if analysis.get("sharpness_raw") is not None else None,
+        "focus_uncertain": analysis.get("focus_uncertain", False),
         "exposure": analysis.get("exposure"),
         "contrast": analysis.get("contrast"),
         "exif_score": analysis.get("exif_score"),

@@ -90,7 +90,7 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
   <img src="docs/demo/workflow.gif" alt="Guided walkthrough: import folders, review photos, inspect a frame, use M to mark Maybe, compare similar shots and export organized copies" width="1100" />
 </p>
 
-Actual interface captures and calculated scores from an FRC photo session. Analysis and export waits are shortened; demo decisions and export are simulated. This is a workflow demonstration, not a performance benchmark.
+Actual interface captures and calculated scores from an FRC photo session. Analysis and export waits are shortened; demo decisions and export are simulated. Captured before the latest algorithm corrections, so category counts reflect that version. This is a workflow demonstration, not a performance benchmark.
 
 </details>
 
@@ -117,7 +117,7 @@ Actual interface captures and calculated scores from an FRC photo session. Analy
 - **Duplicate & burst detection** — perceptual hashing + SSIM catches exact duplicates; feature matching groups burst/similar shots and auto-picks the best frame
 - **Smart categorization** — every photo lands in Keep / Maybe / Reject before you touch anything
 
-The engine uses fixed scoring rules and pHash / SSIM / ORB comparisons, rather than a trained subject-aware model. Scores and picks are suggestions: a sharp background can hide a soft subject, and similar framing can contain different action. See the [algorithm audit](docs/algorithm-review.md) for reproduced limitations and the dataset results.
+The engine uses fixed scoring rules and pHash / SSIM / ORB comparisons, rather than a trained subject-aware model. Similarity rejection requires geometric and regional visual agreement with the retained frame; uncertain focus goes to Maybe. Scores and picks remain suggestions: a sharp background can hide a soft subject, and similar framing can contain different action. See the [algorithm audit and fixes](docs/algorithm-review.md) for reproduced limitations and before/after dataset results.
 
 ### Review at speed
 - **Keyboard-first culling** — arrow keys move focus, <kbd>K</kbd>/<kbd>M</kbd>/<kbd>R</kbd> decide and auto-advance to the next photo; no clicking required
@@ -220,7 +220,7 @@ fyf-photo-culler/
 
 **Data flow:** Tauri launches Python sidecar → sidecar starts FastAPI on localhost → frontend calls REST API with SSE for real-time progress.
 
-**Why it feels fast:** 320px thumbnails and 1024px previews are written during analysis from the already-decoded image (no on-demand full-resolution decodes), image responses ship with immutable HTTP caching (ETag/304), and every review decision applies optimistically — the UI never waits for the network.
+**Why it feels fast:** 320px thumbnails and 1024px previews are written during analysis from the already-decoded image (no on-demand full-resolution decodes), versioned image URLs use immutable HTTP caching (ETag/304), and every review decision applies optimistically — the UI never waits for the network. Replacing a source file changes its cache version.
 
 ## Keyboard Shortcuts (Review Screen)
 

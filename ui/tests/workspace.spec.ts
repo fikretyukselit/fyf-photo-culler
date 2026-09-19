@@ -9,6 +9,7 @@ async function mockSession(
     unsupported = 0,
   } = {},
 ) {
+  let imageVersion = "source-v1";
   let photos = Array.from({ length: 24 }, (_, i) => ({
     id: `photo-${i}`,
     filename: `FRC_${String(i + 1).padStart(4, "0")}.jpg`,
@@ -89,7 +90,10 @@ async function mockSession(
         );
       if (url.searchParams.get("folder") === "/photos/card-b") result = [];
       return json({
-        photos: result,
+        photos: result.map((photo) => ({
+          ...photo,
+          image_version: imageVersion,
+        })),
         total: result.length,
         page: 1,
         limit: 200,
@@ -131,6 +135,9 @@ async function mockSession(
   });
   return {
     decisions,
+    replaceImageVersion: (version: string) => {
+      imageVersion = version;
+    },
     recoverPhotos: () => {
       failPhotos = false;
     },
@@ -213,6 +220,39 @@ test("photo loading failures and empty filters offer working recovery", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.locator(".photo-card").first()).toBeVisible();
+});
+
+test("refreshed source versions reach grid, inspector and loupe image URLs", async ({
+  page,
+}) => {
+  const session = await mockSession(page);
+  await resume(page);
+  await expect(page.locator(".photo-card img").first()).toHaveAttribute(
+    "src",
+    /thumbnail\?v=source-v1$/,
+  );
+  session.replaceImageVersion("source-v2");
+  await page.getByRole("button", { name: "Maybe 6", exact: true }).click();
+  await page
+    .getByRole("button", { name: "All photos 24", exact: true })
+    .click();
+  await expect(page.locator(".photo-card img").first()).toHaveAttribute(
+    "src",
+    /thumbnail\?v=source-v2$/,
+  );
+  await page.locator(".photo-card").first().click();
+  await expect(page.locator(".photo-inspector img")).toHaveAttribute(
+    "src",
+    /preview\?v=source-v2$/,
+  );
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("dialog").locator('img[src*="/preview?"]').first(),
+  ).toHaveAttribute("src", /preview\?v=source-v2$/);
+  await page.keyboard.press("z");
+  await expect(
+    page.getByRole("dialog").locator('img[src*="/full?"]'),
+  ).toHaveAttribute("src", /full\?v=source-v2$/);
 });
 
 test("export groups rejection reasons, uses session destination and can retry a failed preview", async ({
@@ -348,6 +388,10 @@ test("selected photos compare in a focused dialog without losing the selection",
   await expect(
     page.getByRole("dialog", { name: "Compare", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("dialog").locator("img").first()).toHaveAttribute(
+    "src",
+    /full\?v=source-v1$/,
+  );
   await page.keyboard.press("Tab");
   expect(
     await page
