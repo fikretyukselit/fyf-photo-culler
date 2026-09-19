@@ -1,9 +1,11 @@
 import { useSyncExternalStore } from "react";
+import { workspaceCopy } from "./workspace-copy";
 
 export type Locale = "en" | "tr";
 
 const translations = {
   en: {
+    ...workspaceCopy.en,
     // Landing
     "app.title": "FYF Photo Culler",
     "app.subtitle": "AI-powered photo culling and organization",
@@ -12,8 +14,10 @@ const translations = {
     "landing.mergeMode": "Merge all into single output",
     "landing.startCulling": "Start Culling",
     "landing.starting": "Starting...",
-    "landing.onlyJpgSupported": "Warning: {n} unsupported image file(s) (RAW, PNG, HEIC…) will be skipped — only JPG/JPEG is analyzed. Continue?",
-    "landing.noJpgFound": "No JPG photos found in the selected folders (subfolders are searched too).",
+    "landing.onlyJpgSupported":
+      "Warning: {n} unsupported image file(s) (RAW, PNG, HEIC…) will be skipped — only JPG/JPEG is analyzed. Continue?",
+    "landing.noJpgFound":
+      "No JPG photos found in the selected folders (subfolders are searched too).",
 
     // Processing
     "processing.title": "Analyzing Photos...",
@@ -58,7 +62,8 @@ const translations = {
     "detail.fileSize": "File Size",
 
     // Groups
-    "group.badge_tooltip": "This photo is part of a group of similar shots. Click to review the group.",
+    "group.badge_tooltip":
+      "This photo is part of a group of similar shots. Click to review the group.",
     "group.title": "Photo Group",
     "group.auto_pick": "Auto pick",
     "group.view": "View group (×{n})",
@@ -72,7 +77,8 @@ const translations = {
     "compare.title": "Compare",
     "compare.open": "Compare",
     "compare.keep_this": "Keep this, reject others",
-    "compare.hint": "Scroll to zoom · drag to pan · double-click to reset · Esc to close",
+    "compare.hint":
+      "Scroll to zoom · drag to pan · double-click to reset · Esc to close",
     "compare.auto_pick": "Auto pick",
     "compare.needs_selection": "Select 2-4 photos to compare",
 
@@ -120,12 +126,14 @@ const translations = {
     // Backend connection
     "backend.connecting": "Connecting to the analysis engine...",
     "backend.errorTitle": "Couldn't reach the analysis engine",
-    "backend.errorHint": "The background process didn't start in time. This can happen if the port is in use or another copy of the app is running. Try again, or restart the app.",
+    "backend.errorHint":
+      "The background process didn't start in time. This can happen if the port is in use or another copy of the app is running. Try again, or restart the app.",
     "backend.retry": "Retry",
 
     // Session resume
     "session.resumeTitle": "Resume your previous session?",
-    "session.resumeHint": "{total} photos reviewed ({keep} kept). Your decisions were saved.",
+    "session.resumeHint":
+      "{total} photos, {keep} in Keep. Your decisions are saved.",
     "session.resume": "Resume",
     "session.discard": "Discard",
 
@@ -156,7 +164,7 @@ const translations = {
     "shortcuts.triage": "Keep / Maybe / Reject (focused or selected)",
     "shortcuts.select": "Select / deselect focused photo",
     "shortcuts.loupe": "Open large view",
-    "shortcuts.selectAll": "Select all in tab",
+    "shortcuts.selectAll": "Select all loaded photos",
     "shortcuts.compare": "Compare selected (2–4)",
     "shortcuts.zoom": "Zoom in large view",
     "shortcuts.undoRedo": "Undo / Redo",
@@ -168,71 +176,79 @@ const translations = {
     "onboarding.start": "Let's start",
     "onboarding.replay": "How it works",
     "onboarding.s1.title": "Load your SD cards",
-    "onboarding.s1.caption": "Pick one or more folders — subfolders are scanned too.",
+    "onboarding.s1.caption":
+      "Pick one or more folders — subfolders are scanned too.",
     "onboarding.s2.title": "AI scores every shot",
-    "onboarding.s2.caption": "Sharpness, exposure and duplicates are analyzed automatically.",
+    "onboarding.s2.caption":
+      "Sharpness, exposure and duplicates are analyzed automatically.",
     "onboarding.s3.title": "Cull at the speed of keys",
-    "onboarding.s3.caption": "Enter opens the viewer · K keep · M maybe · R reject — it auto-advances.",
+    "onboarding.s3.caption":
+      "Enter opens the viewer · K keep · M maybe · R reject — it auto-advances.",
     "onboarding.s4.title": "Export, organized",
-    "onboarding.s4.caption": "Keep, Maybe and Reject land in tidy folders, ready for Lightroom.",
+    "onboarding.s4.caption":
+      "Keep, Maybe and Reject land in tidy folders, ready for Lightroom.",
   },
   tr: {
+    ...workspaceCopy.tr,
     // Landing
-    "app.title": "FYF Fotograf Eleme",
-    "app.subtitle": "AI destekli fotograf eleme ve duzenleme",
-    "landing.selectFolders": "Klasor Sec",
-    "landing.selectOutput": "Cikti Klasoru Sec",
-    "landing.mergeMode": "Tumunu tek output'a birlestir",
-    "landing.startCulling": "Elemeye Basla",
-    "landing.starting": "Baslatiliyor...",
-    "landing.onlyJpgSupported": "Uyarı: {n} desteklenmeyen görüntü dosyası (RAW, PNG, HEIC…) atlanacak — yalnızca JPG/JPEG analiz edilir. Devam edilsin mi?",
-    "landing.noJpgFound": "Seçilen klasörlerde hiç JPG fotoğraf bulunamadı (alt klasörler de tarandı).",
+    "app.title": "FYF Fotoğraf Eleme",
+    "app.subtitle": "Akıllı fotoğraf eleme ve düzenleme",
+    "landing.selectFolders": "Klasör seç",
+    "landing.selectOutput": "Çıktı klasörü seç",
+    "landing.mergeMode": "Tüm kartları tek çıktıda birleştir",
+    "landing.startCulling": "Elemeye başla",
+    "landing.starting": "Başlatılıyor…",
+    "landing.onlyJpgSupported":
+      "Uyarı: {n} desteklenmeyen görüntü dosyası (RAW, PNG, HEIC…) atlanacak — yalnızca JPG/JPEG analiz edilir. Devam edilsin mi?",
+    "landing.noJpgFound":
+      "Seçilen klasörlerde hiç JPG fotoğraf bulunamadı (alt klasörler de tarandı).",
 
     // Processing
-    "processing.title": "Fotograflar Analiz Ediliyor...",
-    "processing.scanning": "Klasorler taraniyor",
-    "processing.technical": "Teknik Analiz",
-    "processing.duplicates": "Kopya Tespiti",
-    "processing.complete": "Analiz Tamamlandi!",
-    "processing.cancelled": "Analiz Iptal Edildi",
-    "processing.error": "Analiz Hatasi",
-    "processing.failed": "Analiz Basarisiz",
-    "processing.cancel": "Iptal",
-    "processing.cancelling": "Iptal ediliyor...",
-    "processing.retry": "Tekrar Dene",
+    "processing.title": "Fotoğraflar analiz ediliyor…",
+    "processing.scanning": "Klasörler taranıyor",
+    "processing.technical": "Teknik analiz",
+    "processing.duplicates": "Kopya tespiti",
+    "processing.complete": "Analiz tamamlandı",
+    "processing.cancelled": "Analiz iptal edildi",
+    "processing.error": "Analiz hatası",
+    "processing.failed": "Analiz başarısız",
+    "processing.cancel": "İptal et",
+    "processing.cancelling": "İptal ediliyor…",
+    "processing.retry": "Tekrar dene",
     "processing.back": "Geri",
-    "processing.elapsed": "Gecen Sure",
+    "processing.elapsed": "Geçen süre",
 
     // Review
     "review.keep": "Tut",
     "review.maybe": "Belki",
     "review.reject": "Reddet",
-    "review.sortBy": "Siralama",
-    "review.qualityScore": "Kalite Puani",
-    "review.filename": "Dosya Adi",
-    "review.selected": "secili",
-    "review.moveToKeep": "Tut'a Tasi",
-    "review.moveToMaybe": "Belki'ye Tasi",
-    "review.moveToReject": "Reddet'e Tasi",
+    "review.sortBy": "Sıralama",
+    "review.qualityScore": "Kalite puanı",
+    "review.filename": "Dosya adı",
+    "review.selected": "seçili",
+    "review.moveToKeep": "Tut kategorisine taşı",
+    "review.moveToMaybe": "Belki kategorisine taşı",
+    "review.moveToReject": "Reddet kategorisine taşı",
     "review.clearSelection": "Temizle",
-    "review.export": "Disa Aktar",
-    "review.noPhotos": "Bu kategoride fotograf yok",
-    "review.resetOriginal": "Orijinale Sifirla",
-    "review.photoDetails": "Fotograf Detaylari",
-    "review.photosTotal": "toplam fotograf",
+    "review.export": "Dışa aktar",
+    "review.noPhotos": "Bu kategoride fotoğraf yok",
+    "review.resetOriginal": "Analiz önerisine dön",
+    "review.photoDetails": "Fotoğraf detayları",
+    "review.photosTotal": "toplam fotoğraf",
     "review.zoomHint": "Yakınlaştırmak için tıkla",
 
     // Detail
-    "detail.quality": "Kalite Puani",
+    "detail.quality": "Kalite puanı",
     "detail.sharpness": "Keskinlik",
     "detail.exposure": "Pozlama",
     "detail.contrast": "Kontrast",
-    "detail.exifScore": "EXIF Puani",
-    "detail.fileSize": "Dosya Boyutu",
+    "detail.exifScore": "EXIF puanı",
+    "detail.fileSize": "Dosya boyutu",
 
     // Groups
-    "group.badge_tooltip": "Bu fotoğraf benzer karelerden oluşan bir grubun parçası. Grubu incelemek için tıklayın.",
-    "group.title": "Fotoğraf Grubu",
+    "group.badge_tooltip":
+      "Bu fotoğraf benzer karelerden oluşan bir grubun parçası. Grubu incelemek için tıkla.",
+    "group.title": "Fotoğraf grubu",
     "group.auto_pick": "Otomatik seçim",
     "group.view": "Grubu görüntüle (×{n})",
     "group.keep_this_reject_rest": "Bunu tut, kalanları reddet",
@@ -245,9 +261,10 @@ const translations = {
     "compare.title": "Karşılaştır",
     "compare.open": "Karşılaştır",
     "compare.keep_this": "Bunu tut, diğerlerini reddet",
-    "compare.hint": "Yakınlaştırmak için kaydır · sürükleyerek gezin · sıfırlamak için çift tıkla · kapatmak için Esc",
+    "compare.hint":
+      "Yakınlaştırmak için kaydır · sürükleyerek gezin · sıfırlamak için çift tıkla · kapatmak için Esc",
     "compare.auto_pick": "Otomatik seçim",
-    "compare.needs_selection": "Karşılaştırmak için 2-4 fotoğraf seçin",
+    "compare.needs_selection": "Karşılaştırmak için 2–4 fotoğraf seç",
 
     // Filter
     "filter.button": "Filtre",
@@ -258,7 +275,7 @@ const translations = {
     "filter.max": "Maks",
     "filter.rejectReason": "Reddetme sebebi",
     "filter.anyReason": "Tüm sebepler",
-    "filter.mismatch": "Motorla çelişenler",
+    "filter.mismatch": "Analizden farklı kararlar",
     "filter.clear": "Temizle",
     "filter.noMatches": "Mevcut filtrelerle eşleşen fotoğraf yok",
     "filter.reason_blurry": "Bulanık",
@@ -269,21 +286,21 @@ const translations = {
     "filter.reason_reject": "Manuel reddedilen",
 
     // Export
-    "export.title": "Fotograflari Disa Aktar",
-    "export.summary": "Ozet",
-    "export.outputFolder": "Cikti klasoru",
-    "export.outputDefault": "Varsayilan konum",
-    "export.filesOrganized": "dosya duzenlenecek",
-    "export.exporting": "Disa aktariliyor...",
-    "export.complete": "Disa Aktarma Tamamlandi!",
+    "export.title": "Fotoğrafları dışa aktar",
+    "export.summary": "Özet",
+    "export.outputFolder": "Çıktı klasörü",
+    "export.outputDefault": "Varsayılan konum",
+    "export.filesOrganized": "dosya düzenlenecek",
+    "export.exporting": "Dışa aktarılıyor…",
+    "export.complete": "Dışa aktarma tamamlandı",
     "export.completeDesc":
-      "Tum fotograflar duzenlendi ve disa aktarildi.",
-    "export.openFolder": "Klasörü Aç",
-    "export.backToReview": "Incelemeye Don",
-    "export.start": "Disa Aktar",
-    "export.error": "Disa Aktarma Hatasi",
+      "Fotoğrafların düzenlendi ve hedef klasöre kopyalandı.",
+    "export.openFolder": "Klasörü aç",
+    "export.backToReview": "İncelemeye dön",
+    "export.start": "Dışa aktar",
+    "export.error": "Dışa aktarma hatası",
     "export.back": "Geri",
-    "export.retry": "Tekrar Dene",
+    "export.retry": "Tekrar dene",
 
     // Update
     "update.available": "Yeni versiyon mevcut!",
@@ -294,13 +311,15 @@ const translations = {
     // Backend connection
     "backend.connecting": "Analiz motoruna bağlanılıyor...",
     "backend.errorTitle": "Analiz motoruna ulaşılamadı",
-    "backend.errorHint": "Arka plan süreci zamanında başlamadı. Port kullanımdaysa veya uygulamanın başka bir kopyası açıksa bu olabilir. Tekrar deneyin ya da uygulamayı yeniden başlatın.",
-    "backend.retry": "Tekrar Dene",
+    "backend.errorHint":
+      "Arka plan süreci zamanında başlamadı. Port kullanımdaysa veya uygulamanın başka bir kopyası açıksa bu olabilir. Tekrar deneyin ya da uygulamayı yeniden başlatın.",
+    "backend.retry": "Tekrar dene",
 
     // Session resume
-    "session.resumeTitle": "Önceki oturumunuza devam edilsin mi?",
-    "session.resumeHint": "{total} fotoğraf incelendi ({keep} tutuldu). Kararlarınız kaydedilmişti.",
-    "session.resume": "Devam Et",
+    "session.resumeTitle": "Kaldığın yerden devam et",
+    "session.resumeHint":
+      "{total} fotoğraf, {keep} tutulan. Kararların kayıtlı.",
+    "session.resume": "Devam et",
     "session.discard": "Sil",
 
     // Undo / redo
@@ -324,13 +343,13 @@ const translations = {
     "detail.position": "{i} / {n}",
 
     // Shortcuts overlay
-    "shortcuts.title": "Klavye Kısayolları",
+    "shortcuts.title": "Klavye kısayolları",
     "shortcuts.hint": "? kısayollar",
     "shortcuts.navigate": "Odağı taşı",
     "shortcuts.triage": "Tut / Belki / Reddet (odaktaki veya seçili)",
     "shortcuts.select": "Odaktaki fotoğrafı seç / bırak",
     "shortcuts.loupe": "Büyük görünümü aç",
-    "shortcuts.selectAll": "Sekmedeki tümünü seç",
+    "shortcuts.selectAll": "Yüklenen fotoğrafların tümünü seç",
     "shortcuts.compare": "Seçilenleri karşılaştır (2–4)",
     "shortcuts.zoom": "Büyük görünümde yakınlaştır",
     "shortcuts.undoRedo": "Geri al / Yinele",
@@ -342,13 +361,17 @@ const translations = {
     "onboarding.start": "Başlayalım",
     "onboarding.replay": "Nasıl çalışır?",
     "onboarding.s1.title": "SD kartlarını yükle",
-    "onboarding.s1.caption": "Bir veya birden çok klasör seç — alt klasörler de taranır.",
+    "onboarding.s1.caption":
+      "Bir veya birden çok klasör seç — alt klasörler de taranır.",
     "onboarding.s2.title": "AI her kareyi puanlar",
-    "onboarding.s2.caption": "Keskinlik, pozlama ve kopyalar otomatik analiz edilir.",
+    "onboarding.s2.caption":
+      "Keskinlik, pozlama ve kopyalar otomatik analiz edilir.",
     "onboarding.s3.title": "Klavye hızında ele",
-    "onboarding.s3.caption": "Enter büyük görünümü açar · K tut · M belki · R reddet — otomatik ilerler.",
+    "onboarding.s3.caption":
+      "Enter büyük görünümü açar · K tut · M belki · R reddet — otomatik ilerler.",
     "onboarding.s4.title": "Düzenlenmiş şekilde dışa aktar",
-    "onboarding.s4.caption": "Tut, Belki ve Reddet düzenli klasörlere ayrılır — Lightroom'a hazır.",
+    "onboarding.s4.caption":
+      "Tut, Belki ve Reddet düzenli klasörlere ayrılır — Lightroom'a hazır.",
   },
 } as const;
 
@@ -359,6 +382,7 @@ const listeners = new Set<() => void>();
 
 export function setLocale(locale: Locale) {
   currentLocale = locale;
+  document.documentElement.lang = locale;
   localStorage.setItem("fyf-locale", locale);
   listeners.forEach((fn) => fn());
 }
@@ -371,7 +395,8 @@ export function t(
   key: TranslationKey,
   params?: Record<string, string | number>,
 ): string {
-  let str: string = translations[currentLocale][key] || translations.en[key] || key;
+  let str: string =
+    translations[currentLocale][key] || translations.en[key] || key;
   if (params) {
     for (const [name, value] of Object.entries(params)) {
       str = str.replace(`{${name}}`, String(value));
@@ -385,6 +410,8 @@ const saved = localStorage.getItem("fyf-locale") as Locale | null;
 if (saved && (saved === "en" || saved === "tr")) {
   currentLocale = saved;
 }
+
+document.documentElement.lang = currentLocale;
 
 // React hook
 export function useLocale(): {

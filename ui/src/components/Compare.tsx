@@ -1,3 +1,4 @@
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Star, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,18 +23,30 @@ function destStyle(destination: string): {
   color: string;
   tKey: "review.keep" | "review.maybe" | "review.reject";
 } {
-  if (destination === "keep") return { color: "bg-green-500/15 text-green-400", tKey: "review.keep" };
-  if (destination === "maybe") return { color: "bg-amber-500/15 text-amber-400", tKey: "review.maybe" };
+  if (destination === "keep")
+    return { color: "bg-green-500/15 text-green-400", tKey: "review.keep" };
+  if (destination === "maybe")
+    return { color: "bg-amber-500/15 text-amber-400", tKey: "review.maybe" };
   return { color: "bg-red-500/15 text-red-400", tKey: "review.reject" };
 }
 
 export function Compare() {
-  const { comparePhotos, setComparePhotos, setSummary, updatePhotoDestination } =
-    usePhotosStore();
+  const {
+    comparePhotos,
+    setComparePhotos,
+    setSummary,
+    updatePhotoDestination,
+  } = usePhotosStore();
   const { t } = useLocale();
 
   const [transform, setTransform] = useState<Transform>(IDENTITY);
-  const dragState = useRef<{ dragging: boolean; startX: number; startY: number; origX: number; origY: number }>({
+  const dragState = useRef<{
+    dragging: boolean;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  }>({
     dragging: false,
     startX: 0,
     startY: 0,
@@ -42,6 +55,8 @@ export function Compare() {
   });
 
   const open = comparePhotos != null && comparePhotos.length >= 2;
+
+  const dialogRef = useDialogFocus(open);
 
   const close = useCallback(() => {
     setComparePhotos(null);
@@ -71,24 +86,30 @@ export function Compare() {
     e.preventDefault();
     setTransform((prev) => {
       const delta = -e.deltaY * 0.0015;
-      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev.scale * (1 + delta)));
+      const nextScale = Math.min(
+        MAX_SCALE,
+        Math.max(MIN_SCALE, prev.scale * (1 + delta)),
+      );
       // Snap back to centered when fully zoomed out.
       if (nextScale <= MIN_SCALE) return IDENTITY;
       return { ...prev, scale: nextScale };
     });
   }, []);
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (transform.scale <= MIN_SCALE) return;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragState.current = {
-      dragging: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: transform.x,
-      origY: transform.y,
-    };
-  }, [transform]);
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (transform.scale <= MIN_SCALE) return;
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      dragState.current = {
+        dragging: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: transform.x,
+        origY: transform.y,
+      };
+    },
+    [transform],
+  );
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const d = dragState.current;
@@ -122,21 +143,23 @@ export function Compare() {
         // Reflect the new destination in the compared set's badges.
         setComparePhotos(
           (comparePhotos ?? []).map((p) =>
-            p.id === photoId ? { ...p, destination: dest } : p
-          )
+            p.id === photoId ? { ...p, destination: dest } : p,
+          ),
         );
         await refreshSummary();
       } catch (err) {
         console.error("Failed to override:", err);
       }
     },
-    [comparePhotos, setComparePhotos, updatePhotoDestination, refreshSummary]
+    [comparePhotos, setComparePhotos, updatePhotoDestination, refreshSummary],
   );
 
   const handleKeepThis = useCallback(
     async (keepId: string) => {
       if (!comparePhotos) return;
-      const rejectIds = comparePhotos.map((p) => p.id).filter((id) => id !== keepId);
+      const rejectIds = comparePhotos
+        .map((p) => p.id)
+        .filter((id) => id !== keepId);
       try {
         await api.setOverride(keepId, "keep");
         updatePhotoDestination(keepId, "keep");
@@ -148,32 +171,47 @@ export function Compare() {
           comparePhotos.map((p) => ({
             ...p,
             destination: p.id === keepId ? "keep" : "reject",
-          }))
+          })),
         );
         await refreshSummary();
       } catch (err) {
         console.error("Failed to keep-this-reject-others:", err);
       }
     },
-    [comparePhotos, setComparePhotos, updatePhotoDestination, refreshSummary]
+    [comparePhotos, setComparePhotos, updatePhotoDestination, refreshSummary],
   );
 
   if (!open || !comparePhotos) return null;
 
   const count = comparePhotos.length;
   const gridCols =
-    count === 2 ? "grid-cols-2" : count === 3 ? "grid-cols-3" : "grid-cols-2 lg:grid-cols-4";
+    count === 2
+      ? "grid-cols-2"
+      : count === 3
+        ? "grid-cols-3"
+        : "grid-cols-2 lg:grid-cols-4";
 
   const transformStyle = {
     transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
   };
 
   return (
-    <div className="fixed inset-0 z-[95] flex flex-col bg-black/95 backdrop-blur-sm">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("compare.title")}
+      tabIndex={-1}
+      className="dark fixed inset-0 z-[95] flex flex-col bg-black/95 backdrop-blur-sm"
+    >
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
-        <h3 className="text-sm font-semibold text-white">{t("compare.title")}</h3>
-        <span className="text-xs text-white/40">{t("compare.hint")}</span>
+      <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+        <h3 className="text-sm font-semibold text-white">
+          {t("compare.title")}
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          {t("compare.hint")}
+        </span>
         <button
           onClick={close}
           className="ml-auto rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
@@ -189,7 +227,10 @@ export function Compare() {
           const ds = destStyle(photo.destination);
           const score = photo.quality_score ?? 0;
           return (
-            <div key={photo.id} className="relative flex min-h-0 flex-col bg-black">
+            <div
+              key={photo.id}
+              className="relative flex min-h-0 flex-col bg-black"
+            >
               {/* Cell header */}
               <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2">
                 <span className="truncate text-xs font-medium text-white/90">
@@ -198,7 +239,12 @@ export function Compare() {
                 <span className="rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white">
                   {Math.round(score)}
                 </span>
-                <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", ds.color)}>
+                <span
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                    ds.color,
+                  )}
+                >
                   {t(ds.tKey)}
                 </span>
                 {photo.is_group_best && (
@@ -217,7 +263,9 @@ export function Compare() {
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onDoubleClick={() => setTransform(IDENTITY)}
-                style={{ cursor: transform.scale > MIN_SCALE ? "grab" : "default" }}
+                style={{
+                  cursor: transform.scale > MIN_SCALE ? "grab" : "default",
+                }}
               >
                 <img
                   src={api.fullUrl(photo.id)}

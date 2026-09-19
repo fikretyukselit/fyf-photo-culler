@@ -1,3 +1,4 @@
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { useCallback, useEffect, useState } from "react";
 import { Check, Columns2, Layers, Star, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,19 +10,30 @@ import type { Photo, PhotoGroup } from "@/lib/api";
 
 // ─── Category badge helper ───────────────────────────────────
 
-function destStyle(destination: string): { color: string; tKey: "review.keep" | "review.maybe" | "review.reject" } {
-  if (destination === "keep") return { color: "bg-green-500/15 text-green-400", tKey: "review.keep" };
-  if (destination === "maybe") return { color: "bg-amber-500/15 text-amber-400", tKey: "review.maybe" };
+function destStyle(destination: string): {
+  color: string;
+  tKey: "review.keep" | "review.maybe" | "review.reject";
+} {
+  if (destination === "keep")
+    return { color: "bg-green-500/15 text-green-400", tKey: "review.keep" };
+  if (destination === "maybe")
+    return { color: "bg-amber-500/15 text-amber-400", tKey: "review.maybe" };
   return { color: "bg-red-500/15 text-red-400", tKey: "review.reject" };
 }
 
 // ─── Group Panel ─────────────────────────────────────────────
 
 export function GroupPanel() {
-  const { activeGroupId, setActiveGroupId, setComparePhotos, setSummary, updatePhotoDestination } =
-    usePhotosStore();
+  const {
+    activeGroupId,
+    setActiveGroupId,
+    setComparePhotos,
+    setSummary,
+    updatePhotoDestination,
+  } = usePhotosStore();
   const { t } = useLocale();
   const [group, setGroup] = useState<PhotoGroup | null>(null);
+  const dialogRef = useDialogFocus(!!activeGroupId && !!group);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Fetch the group whenever the active id changes.
@@ -106,25 +118,32 @@ export function GroupPanel() {
   const selected: Photo | undefined =
     group.members.find((m) => m.id === selectedId) ?? group.members[0];
   const kindLabel =
-    group.kind === "duplicate" ? t("group.kind_duplicate") : t("group.kind_similar");
+    group.kind === "duplicate"
+      ? t("group.kind_duplicate")
+      : t("group.kind_similar");
 
   return (
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("group.title")}
+      tabIndex={-1}
       className="fixed inset-0 z-[90] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm"
       onClick={close}
     >
       <div
-        className="glass flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/10"
+        className="glass flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-3">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-3">
           <Layers className="size-4 text-amber-400" />
           <h3 className="text-sm font-semibold">{t("group.title")}</h3>
           <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-xs text-muted-foreground">
             {kindLabel}
           </span>
-          <span className="text-xs text-white/30">
+          <span className="text-xs text-muted-foreground">
             {t("group.members", { n: group.members.length })}
           </span>
           <button
@@ -155,7 +174,7 @@ export function GroupPanel() {
         )}
 
         {/* Member strip */}
-        <div className="flex gap-3 overflow-x-auto border-t border-white/10 px-4 py-3">
+        <div className="flex gap-3 overflow-x-auto border-t border-border px-4 py-3">
           {group.members.map((m) => {
             const ds = destStyle(m.destination);
             const isActive = m.id === selectedId;
@@ -167,7 +186,7 @@ export function GroupPanel() {
                   "relative w-32 shrink-0 cursor-pointer overflow-hidden rounded-lg border transition-all",
                   isActive
                     ? "border-amber-400 ring-2 ring-amber-400/40"
-                    : "border-white/10 hover:border-white/25"
+                    : "border-border hover:border-white/25",
                 )}
                 onClick={() => setSelectedId(m.id)}
               >
@@ -191,7 +210,7 @@ export function GroupPanel() {
                   <span
                     className={cn(
                       "rounded px-1 py-0.5 text-[10px] font-medium",
-                      ds.color
+                      ds.color,
                     )}
                   >
                     {t(ds.tKey)}
@@ -236,7 +255,7 @@ export function GroupPanel() {
         </div>
 
         {/* Footer actions */}
-        <div className="flex gap-2 border-t border-white/10 px-5 py-3">
+        <div className="flex gap-2 border-t border-border px-5 py-3">
           {group.members.length >= 2 && (
             <Button
               variant="outline"

@@ -1,263 +1,273 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Check,
   FolderOpen,
-  Package,
+  FolderOutput,
+  ShieldCheck,
+  Star,
+  X,
+  Loader2,
+  CircleCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useSessionStore } from "@/lib/stores";
-import { usePhotosStore } from "@/lib/stores";
+import { useSessionStore, categoryOf } from "@/lib/stores";
 import { useLocale } from "@/lib/i18n";
 import { api } from "@/lib/api";
-
-interface ExportPreview {
-  keep: string[];
-  maybe: string[];
-  reject: string[];
-  total: number;
-}
 
 type ExportState = "idle" | "exporting" | "complete" | "error";
 
 export function Export() {
-  const { setScreen, outputDir } = useSessionStore();
-  const { summary } = usePhotosStore();
+  const { setScreen } = useSessionStore();
   const { t } = useLocale();
-
-  const [preview, setPreview] = useState<ExportPreview | null>(null);
+  const [preview, setPreview] = useState<Record<string, number> | null>(null);
   const [state, setState] = useState<ExportState>("idle");
   const [progress, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
   const [error, setError] = useState<string | null>(null);
-  // Absolute output dir as reported by the backend on completion — the
-  // session's outputDir may be empty (backend then defaults it).
+  const [previewError, setPreviewError] = useState(false);
   const [exportedDir, setExportedDir] = useState<string | null>(null);
+  const [sessionOutput, setSessionOutput] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  const previewGeneration = useRef(0);
 
-  // Load export preview
-  useEffect(() => {
-    api.getExportPreview().then(setPreview).catch(() => {});
+  const loadPreview = useCallback(async () => {
+    const generation = ++previewGeneration.current;
+    setPreviewError(false);
+    setPreview(null);
+    try {
+      const [counts, session] = await Promise.all([
+        api.getExportPreview(),
+        api.getSession(),
+      ]);
+      if (generation !== previewGeneration.current) return;
+      setPreview(counts);
+      setSessionOutput(session.output_dir ?? null);
+    } catch {
+      if (generation === previewGeneration.current) setPreviewError(true);
+    }
   }, []);
+  useEffect(() => {
+    loadPreview();
+    return () => {
+      previewGeneration.current++;
+    };
+  }, [loadPreview]);
+  useEffect(() => () => esRef.current?.close(), []);
 
   function handleExport() {
+    if (esRef.current || !preview) return;
     setState("exporting");
     setProgress(0);
-
+    setError(null);
     const es = api.exportStream();
     esRef.current = es;
-
+    function stop() {
+      es.close();
+      esRef.current = null;
+    }
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.pct != null) setProgress(data.pct);
+        if (data.pct != null) setProgress(Math.max(0, Math.min(100, data.pct)));
         if (data.current_file) setCurrentFile(data.current_file);
-
         if (data.stage === "complete") {
-          es.close();
-          if (data.output_dir) setExportedDir(data.output_dir);
+          stop();
+          setExportedDir(data.output_dir ?? null);
           setState("complete");
         } else if (data.stage === "error") {
-          es.close();
+          stop();
           setState("error");
-          setError(data.current_file || "Export failed.");
+          setError(data.message || data.current_file || t("export.error"));
         }
       } catch {
-        // ignore
+        stop();
+        setState("error");
+        setError(t("export.error"));
       }
     };
-
     es.onerror = () => {
-      es.close();
+      stop();
       setState("error");
-      setError("Lost connection during export.");
+      setError(t("export.connectionLost"));
     };
   }
 
   async function handleOpenFolder() {
-    // Prefer the absolute path the backend actually exported to; the openPath
-    // fallback is gone — it isn't covered by opener:default and always failed.
-    const dir = exportedDir || outputDir;
+    const dir = exportedDir || sessionOutput;
     if (!dir) return;
     try {
       const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
       await revealItemInDir(dir);
-    } catch (e) {
-      console.error("Failed to reveal output folder:", e);
+    } catch {
+      setError(t("export.openError"));
     }
   }
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      esRef.current?.close();
-    };
-  }, []);
-
+  const counts = { keep: 0, maybe: 0, reject: 0 };
+  for (const [destination, count] of Object.entries(preview ?? {}))
+    counts[categoryOf(destination)] += count;
+  const total = counts.keep + counts.maybe + counts.reject;
   const categories = [
-    { key: "keep" as const, tKey: "review.keep" as const, color: "bg-green-500", text: "text-green-400" },
-    { key: "maybe" as const, tKey: "review.maybe" as const, color: "bg-amber-500", text: "text-amber-400" },
-    { key: "reject" as const, tKey: "review.reject" as const, color: "bg-red-500", text: "text-red-400" },
-  ];
+    {
+      key: "keep",
+      label: "review.keep",
+      icon: Check,
+      className: "text-green-400",
+    },
+    {
+      key: "maybe",
+      label: "review.maybe",
+      icon: Star,
+      className: "text-amber-400",
+    },
+    {
+      key: "reject",
+      label: "review.reject",
+      icon: X,
+      className: "text-red-400",
+    },
+  ] as const;
 
   return (
-    <div className="relative flex h-full items-center justify-center overflow-hidden">
-      {/* Background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 h-[400px] w-[400px] rounded-full bg-purple-700/15 blur-[120px]" />
-        <div className="absolute -right-32 -bottom-32 h-[400px] w-[400px] rounded-full bg-blue-700/15 blur-[120px]" />
-      </div>
-
-      <div className="glass relative z-10 mx-4 w-full max-w-lg rounded-2xl p-8">
-        {state === "complete" ? (
-          /* Success state */
-          <>
-            <div className="mb-6 flex flex-col items-center gap-3">
-              <div className="flex size-14 items-center justify-center rounded-full bg-green-500/15">
-                <Check className="size-7 text-green-400" />
-              </div>
-              <h2 className="text-xl font-semibold">{t("export.complete")}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t("export.completeDesc")}
-              </p>
-              {exportedDir && (
-                <p className="max-w-full truncate rounded-md bg-foreground/5 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
-                  {exportedDir}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1 gap-2"
-                onClick={() => setScreen("review")}
-              >
-                <ArrowLeft className="size-4" />
-                {t("export.backToReview")}
-              </Button>
-              <Button
-                className="flex-1 gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 font-semibold text-black hover:from-amber-400 hover:to-yellow-400"
-                onClick={handleOpenFolder}
-              >
-                <FolderOpen className="size-4" />
-                {t("export.openFolder")}
-              </Button>
-            </div>
-          </>
-        ) : state === "error" ? (
-          /* Error state */
-          <>
-            <div className="mb-6 flex flex-col items-center gap-3">
-              <h2 className="text-xl font-semibold text-red-400">
-                {t("export.error")}
-              </h2>
-              <p className="text-center text-sm text-muted-foreground">{error}</p>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setScreen("review")}
-              >
-                {t("export.backToReview")}
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  setState("idle");
-                  setError(null);
-                }}
-              >
-                {t("export.retry")}
-              </Button>
-            </div>
-          </>
+    <div className="stage-page">
+      <section className="stage-card" aria-labelledby="export-title">
+        <div className="section-icon mb-5">
+          {state === "complete" ? (
+            <CircleCheck className="text-green-400" size={23} />
+          ) : (
+            <FolderOutput size={23} />
+          )}
+        </div>
+        <h1 id="export-title">
+          {t(
+            state === "complete"
+              ? "export.complete"
+              : state === "error"
+                ? "export.error"
+                : "export.title",
+          )}
+        </h1>
+        <p className="stage-description">
+          {t(
+            state === "complete" ? "export.completeDesc" : "export.description",
+          )}
+        </p>
+        {previewError ? (
+          <div className="inline-error" role="alert">
+            <p>{t("export.previewError")}</p>
+            <Button variant="outline" className="mt-3" onClick={loadPreview}>
+              {t("review.retry")}
+            </Button>
+          </div>
+        ) : !preview ? (
+          <p
+            role="status"
+            className="my-8 flex items-center gap-2 text-sm text-muted-foreground"
+          >
+            <Loader2 size={16} className="animate-spin" />
+            {t("export.loading")}
+          </p>
         ) : (
-          /* Idle / Exporting */
           <>
-            <div className="mb-6 flex items-center gap-3">
-              <Package className="size-6 text-amber-400" />
-              <h2 className="text-xl font-semibold">{t("export.title")}</h2>
-            </div>
-
-            {/* Summary counts */}
-            <div className="mb-4 grid grid-cols-3 gap-3">
-              {categories.map((cat) => (
-                <div
-                  key={cat.key}
-                  className="rounded-xl bg-foreground/5 p-3 text-center"
-                >
-                  <p className={cn("text-2xl font-bold tabular-nums", cat.text)}>
-                    {summary[cat.key] ?? 0}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{t(cat.tKey)}</p>
+            <div className="export-categories">
+              {categories.map(({ key, label, icon: Icon, className }) => (
+                <div key={key} className="export-category">
+                  <Icon size={17} className={className} />
+                  <span>{t(label)}</span>
+                  <strong className={className}>
+                    {counts[key].toLocaleString()}
+                  </strong>
                 </div>
               ))}
             </div>
-
-            {/* Output path */}
-            <div className="mb-4 rounded-lg bg-foreground/5 px-3 py-2">
-              <span className="text-xs text-muted-foreground">{t("export.outputFolder")}</span>
-              <p className="truncate text-sm text-foreground/70">
-                {outputDir || t("export.outputDefault")}
-              </p>
-            </div>
-
-            {/* Preview info */}
-            {preview && (
-              <div className="mb-6 rounded-lg bg-foreground/5 px-3 py-2">
-                <span className="text-xs text-muted-foreground">
-                  {preview.total} {t("export.filesOrganized")}
-                </span>
-              </div>
-            )}
-
-            {/* Export progress */}
-            {state === "exporting" && (
-              <div className="mb-6 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{t("export.exporting")}</span>
-                  <span className="tabular-nums text-amber-400">
-                    {progress}%
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-foreground/5">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                {currentFile && (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {currentFile}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setScreen("review")}
-                disabled={state === "exporting"}
-              >
-                <ArrowLeft className="size-4" />
-                {t("export.back")}
-              </Button>
-              <Button
-                className="flex-1 gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 font-semibold text-black hover:from-amber-400 hover:to-yellow-400"
-                onClick={handleExport}
-                disabled={state === "exporting"}
-              >
-                {state === "exporting" ? t("export.exporting") : t("export.start")}
-              </Button>
-            </div>
+            <p className="mb-5 text-sm font-medium">
+              {t("export.total", { n: total })}
+            </p>
           </>
         )}
-      </div>
+        <div className="export-path">
+          <span>{t("export.outputFolder")}</span>
+          <p>{exportedDir || sessionOutput || t("export.defaultHint")}</p>
+        </div>
+        <p className="copy-note">
+          <ShieldCheck size={16} />
+          {t("export.copyNote")}
+        </p>
+        {state === "exporting" && (
+          <div className="mb-6" role="status">
+            <div className="mb-3 flex justify-between text-sm">
+              <span>{t("export.exporting")}</span>
+              <span className="tabular-nums">{progress}%</span>
+            </div>
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-label={t("export.exporting")}
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div style={{ width: `${progress}%` }} />
+            </div>
+            <p className="mt-3 truncate text-xs text-muted-foreground">
+              {currentFile}
+            </p>
+          </div>
+        )}
+        {error && (
+          <div className="inline-error" role="alert">
+            {error}
+          </div>
+        )}
+        <div className="stage-actions">
+          <Button
+            variant="outline"
+            disabled={state === "exporting"}
+            onClick={() => setScreen("review")}
+          >
+            <ArrowLeft size={16} />
+            {t("export.backToReview")}
+          </Button>
+          {state === "complete" ? (
+            <Button
+              disabled={!exportedDir && !sessionOutput}
+              onClick={handleOpenFolder}
+            >
+              <FolderOpen size={16} />
+              {t("export.openFolder")}
+            </Button>
+          ) : (
+            <Button
+              disabled={
+                state === "exporting" || previewError || !preview || total === 0
+              }
+              onClick={handleExport}
+            >
+              {state === "exporting" && (
+                <Loader2 size={16} className="animate-spin" />
+              )}
+              {t(
+                state === "exporting"
+                  ? "export.exporting"
+                  : state === "error"
+                    ? "export.retry"
+                    : "export.start",
+              )}
+              <ArrowRight size={16} />
+            </Button>
+          )}
+        </div>
+        {state === "complete" && (
+          <button
+            className="text-button mt-4 w-full"
+            onClick={() => setScreen("landing")}
+          >
+            {t("export.newSession")}
+          </button>
+        )}
+      </section>
     </div>
   );
 }

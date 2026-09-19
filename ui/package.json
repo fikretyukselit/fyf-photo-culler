@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
@@ -30,6 +31,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",

@@ -1,3 +1,4 @@
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Star, Trash2, X, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,21 +21,36 @@ function destBadge(destination: string): string {
  * auto-advance, Z/click to zoom. Navigates the same filtered list as the grid.
  */
 export function Loupe() {
-  const { photos, activeCategory, focusIdx, loupeOpen, setLoupeOpen, setFocusIdx } =
-    usePhotosStore();
+  const {
+    photos,
+    activeCategory,
+    focusIdx,
+    loupeOpen,
+    setLoupeOpen,
+    setFocusIdx,
+  } = usePhotosStore();
   const { t } = useLocale();
 
   const visible = useMemo(
     () => visiblePhotos(photos, activeCategory),
-    [photos, activeCategory]
+    [photos, activeCategory],
   );
   const idx = Math.min(Math.max(focusIdx, 0), visible.length - 1);
   const photo = visible.length > 0 ? visible[idx] : null;
 
+  const dialogRef = useDialogFocus(loupeOpen && !!photo);
+
   const [zoomed, setZoomed] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [fullLoaded, setFullLoaded] = useState(false);
-  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+  const dragState = useRef({
+    dragging: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    origX: 0,
+    origY: 0,
+  });
 
   const close = useCallback(() => setLoupeOpen(false), [setLoupeOpen]);
 
@@ -116,14 +132,18 @@ export function Loupe() {
       };
       if (zoomed) (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
-    [zoomed, pan]
+    [zoomed, pan],
   );
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const d = dragState.current;
     if (!d.dragging) return;
-    if (Math.abs(e.clientX - d.startX) + Math.abs(e.clientY - d.startY) > 4) d.moved = true;
-    setPan({ x: d.origX + (e.clientX - d.startX), y: d.origY + (e.clientY - d.startY) });
+    if (Math.abs(e.clientX - d.startX) + Math.abs(e.clientY - d.startY) > 4)
+      d.moved = true;
+    setPan({
+      x: d.origX + (e.clientX - d.startX),
+      y: d.origY + (e.clientY - d.startY),
+    });
   }, []);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
@@ -155,27 +175,41 @@ export function Loupe() {
     : undefined;
 
   return (
-    <div className="fixed inset-0 z-[95] flex flex-col bg-black/95 backdrop-blur-sm">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("detail.openLoupe")}
+      tabIndex={-1}
+      className="dark fixed inset-0 z-[95] flex flex-col bg-black/95 backdrop-blur-sm"
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-2.5">
-        <span className="truncate text-sm font-medium text-white/90">{photo.filename}</span>
+        <span className="truncate text-sm font-medium text-white/90">
+          {photo.filename}
+        </span>
         <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-white">
           <span className={cn("size-1.5 rounded-full", scoreDot)} />
           {Math.round(score)}
         </span>
-        <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", destBadge(photo.destination))}>
+        <span
+          className={cn(
+            "rounded px-1.5 py-0.5 text-xs font-medium",
+            destBadge(photo.destination),
+          )}
+        >
           {t(
             categoryOf(photo.destination) === "keep"
               ? "review.keep"
               : categoryOf(photo.destination) === "maybe"
                 ? "review.maybe"
-                : "review.reject"
+                : "review.reject",
           )}
         </span>
-        <span className="text-xs tabular-nums text-white/40">
+        <span className="text-xs tabular-nums text-muted-foreground">
           {t("detail.position", { i: idx + 1, n: visible.length })}
         </span>
-        <span className="ml-auto flex items-center gap-1 text-xs text-white/30">
+        <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
           <ZoomIn className="size-3.5" />
           {t("loupe.zoomHint")}
         </span>
@@ -212,7 +246,7 @@ export function Loupe() {
             onLoad={() => setFullLoaded(true)}
             className={cn(
               "pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-150",
-              fullLoaded ? "opacity-100" : "opacity-0"
+              fullLoaded ? "opacity-100" : "opacity-0",
             )}
             style={imageTransform}
           />
@@ -227,7 +261,9 @@ export function Loupe() {
         >
           <Check className="size-4" />
           {t("review.keep")}
-          <kbd className="rounded bg-white/10 px-1 text-[10px] text-white/50">K</kbd>
+          <kbd className="rounded bg-white/10 px-1 text-[10px] text-muted-foreground">
+            K
+          </kbd>
         </button>
         <button
           className="flex items-center gap-1.5 rounded-lg bg-amber-500/15 px-4 py-1.5 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/25"
@@ -235,7 +271,9 @@ export function Loupe() {
         >
           <Star className="size-4" />
           {t("review.maybe")}
-          <kbd className="rounded bg-white/10 px-1 text-[10px] text-white/50">M</kbd>
+          <kbd className="rounded bg-white/10 px-1 text-[10px] text-muted-foreground">
+            M
+          </kbd>
         </button>
         <button
           className="flex items-center gap-1.5 rounded-lg bg-red-500/15 px-4 py-1.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/25"
@@ -243,7 +281,9 @@ export function Loupe() {
         >
           <Trash2 className="size-4" />
           {t("review.reject")}
-          <kbd className="rounded bg-white/10 px-1 text-[10px] text-white/50">R</kbd>
+          <kbd className="rounded bg-white/10 px-1 text-[10px] text-muted-foreground">
+            R
+          </kbd>
         </button>
       </div>
 
@@ -265,7 +305,7 @@ export function Loupe() {
                     : "border-b-red-500",
                 realIdx === idx
                   ? "ring-2 ring-amber-400"
-                  : "opacity-50 hover:opacity-90"
+                  : "opacity-50 hover:opacity-90",
               )}
             >
               <img

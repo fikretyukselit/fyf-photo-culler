@@ -1,0 +1,58 @@
+[
+  {
+    "id": "01-import",
+    "step": 1,
+    "title": "Bring your competition day together",
+    "description": "Add camera cards. Your originals stay in place.",
+    "keys": "",
+    "image": "01-import.jpg"
+  },
+  {
+    "id": "02-review",
+    "step": 2,
+    "title": "See the whole selection",
+    "description": "Review suggested categories, scores and groups. The final decision is yours.",
+    "keys": "",
+    "image": "02-review.jpg"
+  },
+  {
+    "id": "03-inspect",
+    "step": 2,
+    "title": "Inspect the details",
+    "description": "Read focus, exposure and camera settings. Keep, Maybe and Reject stay within reach.",
+    "keys": "K  Keep    M  Maybe    R  Reject",
+    "image": "03-inspect.jpg"
+  },
+  {
+    "id": "04-loupe",
+    "step": 2,
+    "title": "Give each frame room",
+    "description": "Open the large view to inspect framing, then move between photos with the arrow keys.",
+    "keys": "Enter  Enlarge    ← →  Navigate",
+    "image": "04-loupe.jpg"
+  },
+  {
+    "id": "05-compare",
+    "step": 3,
+    "title": "Compare before you decide",
+    "description": "Put similar frames side by side. Look at the subject, not just the score.",
+    "keys": "C  Compare    Esc  Return",
+    "image": "05-compare.jpg"
+  },
+  {
+    "id": "06-export",
+    "step": 4,
+    "title": "Check the destination and totals",
+    "description": "All categories are copied into organized folders. Originals are never moved or deleted.",
+    "keys": "",
+    "image": "06-export.jpg"
+  },
+  {
+    "id": "07-complete",
+    "step": 4,
+    "title": "Your selection, ready for the next step",
+    "description": "Open the organized folder or return to your saved review.",
+    "keys": "",
+    "image": "07-complete.jpg"
+  }
+]

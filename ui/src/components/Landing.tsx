@@ -1,14 +1,28 @@
 import { useState, useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { getVersion } from "@tauri-apps/api/app";
-import { FolderOpen, X, Play, FolderOutput, History, Trash2 } from "lucide-react";
+import {
+  FolderOpen,
+  X,
+  ArrowRight,
+  FolderOutput,
+  History,
+  Plus,
+  ShieldCheck,
+  ScanLine,
+  Images,
+  Check,
+  Loader2,
+  CircleHelp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useSessionStore, usePhotosStore } from "@/lib/stores";
+import {
+  useSessionStore,
+  usePhotosStore,
+  useProgressStore,
+  EMPTY_FILTERS,
+} from "@/lib/stores";
 import { useLocale } from "@/lib/i18n";
-import { api } from "@/lib/api";
-import type { SessionInfo } from "@/lib/api";
-import fyfIcon from "@/assets/orta.png";
+import { api, type SessionInfo } from "@/lib/api";
 
 export function Landing() {
   const {
@@ -21,264 +35,356 @@ export function Landing() {
     setOutputDir,
     setScreen,
   } = useSessionStore();
-
   const { t } = useLocale();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState("");
   const [session, setSession] = useState<SessionInfo | null>(null);
+  const [confirmation, setConfirmation] = useState<
+    "replace" | "formats" | null
+  >(null);
+  const [skipped, setSkipped] = useState(0);
+  const [pathMode, setPathMode] = useState<"source" | "output" | null>(null);
+  const [path, setPath] = useState("");
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => {});
-  }, []);
-
-  // Offer to resume a session restored from disk at startup.
-  useEffect(() => {
-    api.getSession()
+    api
+      .getSession()
       .then((s) => setSession(s.resumable ? s : null))
       .catch(() => {});
   }, []);
 
   function handleResume() {
-    // Processing normally lands the user on the "keep" tab; do the same here
-    // since resume skips Processing (the grid has no "all" category).
-    usePhotosStore.getState().setActiveCategory("keep");
+    usePhotosStore.getState().setActiveCategory("all");
     setScreen("review");
   }
 
-  async function handleDiscard() {
+  async function chooseFolder(mode: "source" | "output") {
+    if (!("__TAURI_INTERNALS__" in window)) {
+      setPathMode(mode);
+      setPath("");
+      return;
+    }
     try {
-      await api.discardSession();
-    } catch {
-      // ignore — clearing is best-effort
-    }
-    setSession(null);
-  }
-
-  async function handleSelectFolders() {
-    const selected = await open({
-      directory: true,
-      multiple: true,
-      title: "Select photo folders",
-    });
-    if (selected) {
+      const selected = await open({
+        directory: true,
+        multiple: mode === "source",
+        title: t(mode === "source" ? "import.add" : "landing.selectOutput"),
+      });
+      if (!selected) return;
       const folders = Array.isArray(selected) ? selected : [selected];
-      for (const f of folders) {
-        if (!inputFolders.includes(f)) addFolder(f);
-      }
+      if (mode === "source") folders.forEach(addFolder);
+      else setOutputDir(folders[0]);
+      setConfirmation(null);
+    } catch {
+      setError(t("import.failed"));
+      setPathMode(mode);
     }
   }
 
-  async function handleSelectOutput() {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: "Select output folder",
-    });
-    if (selected) {
-      const dir = Array.isArray(selected) ? selected[0] : selected;
-      setOutputDir(dir);
-    }
-  }
-
-  async function handleStart() {
-    if (inputFolders.length === 0) return;
+  async function startAnalysis(confirmedFormats = false) {
+    if (!inputFolders.length || starting) return;
     setStarting(true);
     setError(null);
     try {
-      const check = await api.checkFolders(inputFolders);
-      
-      if (check.jpg_count === 0) {
-        setError(t("landing.noJpgFound"));
-        setStarting(false);
-        return;
-      }
-      
-      if (check.other_count > 0) {
-        const proceed = window.confirm(t("landing.onlyJpgSupported", { n: check.other_count }));
-        if (!proceed) {
-          setStarting(false);
+      if (!confirmedFormats) {
+        const result = await api.checkFolders(inputFolders);
+        if (!result.jpg_count) {
+          setError(t("landing.noJpgFound"));
+          return;
+        }
+        if (result.other_count > 0) {
+          setSkipped(result.other_count);
+          setConfirmation("formats");
           return;
         }
       }
-
       await api.analyze(inputFolders, mergeMode, outputDir);
+      useProgressStore.getState().reset();
+      usePhotosStore.setState({
+        photos: [],
+        filters: { ...EMPTY_FILTERS },
+        folderFilter: null,
+        selectedIds: new Set(),
+        focusIdx: -1,
+        detailOpen: false,
+        loupeOpen: false,
+        comparePhotos: null,
+        activeGroupId: null,
+      });
       setScreen("processing");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start analysis");
+    } catch {
+      setError(t("import.startFailed"));
+    } finally {
       setStarting(false);
     }
   }
 
-  return (
-    <div className="relative flex h-full items-center justify-center overflow-hidden">
-      {/* Animated gradient blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="animate-blob-1 absolute -top-32 -left-32 h-[500px] w-[500px] rounded-full bg-purple-700/20 blur-[120px]" />
-        <div className="animate-blob-2 absolute -right-32 -bottom-32 h-[500px] w-[500px] rounded-full bg-blue-700/20 blur-[120px]" />
-        <div className="animate-blob-3 absolute top-1/2 left-1/2 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-600/10 blur-[120px]" />
-      </div>
+  const steps = [
+    { icon: FolderOpen, title: "import.step1", hint: "import.step1Hint" },
+    { icon: ScanLine, title: "import.step2", hint: "import.step2Hint" },
+    { icon: FolderOutput, title: "import.step3", hint: "import.step3Hint" },
+  ] as const;
 
-      {/* Glass card */}
-      <div className="glass relative z-10 mx-4 w-full max-w-lg rounded-2xl p-8">
-        {/* Logo & Title */}
-        <div className="mb-8 flex flex-col items-center text-center">
-          <img
-            src={fyfIcon}
-            alt="FYF"
-            className="mb-4 h-20 w-auto object-contain"
-          />
-          <h1 className="mb-1 text-3xl font-bold tracking-tight">
-            <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">
-              FYF
-            </span>{" "}
-            Photo Culler
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("app.subtitle")}
-          </p>
-          {appVersion && (
-            <span className="mt-1 text-[11px] text-muted-foreground/50">
-              v{appVersion}
+  return (
+    <div className="import-page">
+      <div className="import-layout">
+        <section className="import-intro">
+          <div className="brand-symbol" aria-hidden="true">
+            <Images size={27} strokeWidth={1.5} />
+          </div>
+          <h1>{t("import.title")}</h1>
+          <p className="intro-description">{t("import.description")}</p>
+          <ol className="import-guide">
+            {steps.map(({ icon: Icon, title, hint }) => (
+              <li key={title}>
+                <span className="guide-icon">
+                  <Icon size={19} strokeWidth={1.6} />
+                </span>
+                <div>
+                  <h2>{t(title)}</h2>
+                  <p>{t(hint)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="intro-shortcuts">
+            <span>
+              <kbd>K</kbd>
+              {t("review.keep")}
             </span>
-          )}
+            <span>
+              <kbd>M</kbd>
+              {t("review.maybe")}
+            </span>
+            <span>
+              <kbd>R</kbd>
+              {t("review.reject")}
+            </span>
+          </div>
           <button
+            className="tour-link"
             onClick={() => useSessionStore.getState().setOnboardingOpen(true)}
-            className="mt-2 text-xs text-muted-foreground/70 underline-offset-2 transition-colors hover:text-amber-400 hover:underline"
           >
+            <CircleHelp size={15} />
             {t("onboarding.replay")}
           </button>
-        </div>
-
-        {/* Resume previous session */}
-        {session && (
-          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-            <div className="mb-3 flex items-start gap-3">
-              <History className="mt-0.5 size-5 shrink-0 text-amber-400" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{t("session.resumeTitle")}</p>
-                <p className="text-xs text-muted-foreground">
+        </section>
+        <section className="import-panel" aria-labelledby="sources-title">
+          {session && (
+            <div className="resume-banner">
+              <History size={19} />
+              <div>
+                <strong>{t("session.resumeTitle")}</strong>
+                <p>
                   {t("session.resumeHint", {
                     total: session.summary?.total ?? 0,
                     keep: session.summary?.keep ?? 0,
                   })}
                 </p>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button className="flex-1 gap-2" onClick={handleResume}>
-                <History className="size-4" />
+              <Button variant="outline" size="sm" onClick={handleResume}>
                 {t("session.resume")}
+                <ArrowRight size={14} />
               </Button>
-              <Button variant="outline" className="gap-2" onClick={handleDiscard}>
-                <Trash2 className="size-4" />
-                {t("session.discard")}
-              </Button>
+            </div>
+          )}
+          <div className="panel-heading">
+            <span className="section-icon">
+              <FolderOpen size={20} />
+            </span>
+            <div>
+              <h2 id="sources-title">{t("import.sources")}</h2>
+              <p>{t("import.sourcesHint")}</p>
             </div>
           </div>
-        )}
-
-        {/* Select folders */}
-        <Button
-          variant="outline"
-          className="mb-4 w-full gap-2"
-          onClick={handleSelectFolders}
-        >
-          <FolderOpen className="size-4" />
-          {t("landing.selectFolders")}
-        </Button>
-
-        {/* Folder list */}
-        {inputFolders.length > 0 && (
-          <div className="mb-4 max-h-40 space-y-1.5 overflow-y-auto">
-            {inputFolders.map((folder, idx) => (
-              <div
-                key={folder}
-                className="flex items-center gap-2 rounded-lg bg-foreground/5 px-3 py-2 text-sm"
-              >
-                <span className="min-w-0 flex-1 truncate text-foreground/70">
-                  {folder}
-                </span>
-                <button
-                  onClick={() => removeFolder(idx)}
-                  className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground/80"
+          <div className="source-well">
+            {inputFolders.length === 0 ? (
+              <div className="source-empty">
+                <div className="folder-illustration" aria-hidden="true">
+                  <FolderOpen size={42} strokeWidth={1.2} />
+                  <span>
+                    <Plus size={13} />
+                  </span>
+                </div>
+                <h3>{t("import.empty")}</h3>
+                <p>{t("import.emptyHint")}</p>
+                <Button
+                  onClick={() => chooseFolder("source")}
+                  variant="outline"
+                  className="add-folder"
                 >
-                  <X className="size-3.5" />
+                  <Plus size={16} />
+                  {t("import.add")}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="source-list-heading">
+                  <span>
+                    {t("import.folderCount", { n: inputFolders.length })}
+                  </span>
+                  <Check size={15} />
+                </div>
+                <ul className="source-list">
+                  {inputFolders.map((folder, idx) => (
+                    <li key={folder}>
+                      <FolderOpen size={18} />
+                      <div>
+                        <strong>
+                          {folder.split(/[/\\]/).filter(Boolean).pop()}
+                        </strong>
+                        <span title={folder}>{folder}</span>
+                      </div>
+                      <button
+                        disabled={starting}
+                        className="icon-button"
+                        aria-label={t("import.remove", { name: folder })}
+                        onClick={() => {
+                          removeFolder(idx);
+                          setConfirmation(null);
+                        }}
+                      >
+                        <X size={15} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className="add-source-link"
+                  disabled={starting}
+                  onClick={() => chooseFolder("source")}
+                >
+                  <Plus size={15} />
+                  {t("import.addMore")}
+                </button>
+              </>
+            )}
+            <p className="format-note">{t("import.formats")}</p>
+          </div>
+          {pathMode && (
+            <form
+              className="path-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!path.trim()) return;
+                if (pathMode === "source") addFolder(path.trim());
+                else setOutputDir(path.trim());
+                setPathMode(null);
+                setConfirmation(null);
+              }}
+            >
+              <label htmlFor="folder-path">{t("import.path")}</label>
+              <div>
+                <input
+                  id="folder-path"
+                  autoFocus
+                  value={path}
+                  placeholder={t("import.pathHint")}
+                  onChange={(e) => setPath(e.target.value)}
+                />
+                <Button size="sm" type="submit" disabled={!path.trim()}>
+                  {t("import.pathAdd")}
+                </Button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setPathMode(null)}
+                  aria-label={t("review.close")}
+                >
+                  <X size={16} />
                 </button>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Merge mode */}
-        <label className="mb-4 flex cursor-pointer items-center gap-3 rounded-lg bg-foreground/5 px-3 py-2.5">
-          <input
-            type="checkbox"
-            checked={mergeMode}
-            onChange={(e) => setMergeMode(e.target.checked)}
-            className="size-4 rounded accent-amber-500"
-          />
-          <span className="text-sm text-foreground/70">
-            {t("landing.mergeMode")}
-          </span>
-        </label>
-
-        {/* Output folder */}
-        <Button
-          variant="outline"
-          className="mb-6 w-full gap-2"
-          onClick={handleSelectOutput}
-        >
-          <FolderOutput className="size-4" />
-          {outputDir ? (
-            <span className="truncate">{outputDir}</span>
-          ) : (
-            t("landing.selectOutput")
+            </form>
           )}
-        </Button>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
-            {error}
+          <div className="destination-row">
+            <FolderOutput size={19} />
+            <div>
+              <h3>{t("import.destination")}</h3>
+              <p title={outputDir}>
+                {outputDir || t("import.defaultDestination")}
+              </p>
+            </div>
+            <button
+              className="text-button"
+              disabled={starting}
+              onClick={() => chooseFolder("output")}
+            >
+              {t("import.change")}
+            </button>
           </div>
-        )}
-
-        {/* Start button */}
-        <Button
-          className={cn(
-            "w-full gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-sm font-semibold text-black transition-opacity hover:from-amber-400 hover:to-yellow-400",
-            starting && "animate-pulse"
+          <label className="merge-option">
+            <input
+              type="checkbox"
+              checked={mergeMode}
+              disabled={starting}
+              onChange={(e) => setMergeMode(e.target.checked)}
+            />
+            <span>
+              <strong>{t("landing.mergeMode")}</strong>
+              <small>{t("import.mergeHint")}</small>
+            </span>
+          </label>
+          {error && (
+            <div role="alert" className="inline-error">
+              {error}
+            </div>
           )}
-          disabled={inputFolders.length === 0 || starting}
-          onClick={handleStart}
-        >
-          <Play className="size-4" />
-          {starting ? t("landing.starting") : t("landing.startCulling")}
-        </Button>
+          {confirmation && (
+            <div className="inline-notice" role="alert">
+              <p>
+                {confirmation === "replace"
+                  ? t("import.replace")
+                  : t("import.skipped", { n: skipped })}
+              </p>
+              <div>
+                <Button
+                  size="sm"
+                  disabled={starting}
+                  onClick={() => startAnalysis(confirmation === "formats")}
+                >
+                  {t(
+                    confirmation === "replace"
+                      ? "import.replaceAction"
+                      : "import.continue",
+                  )}
+                </Button>
+                <button
+                  className="text-button"
+                  disabled={starting}
+                  onClick={() => setConfirmation(null)}
+                >
+                  {t("import.cancel")}
+                </button>
+              </div>
+            </div>
+          )}
+          {!confirmation && (
+            <Button
+              className="start-analysis"
+              disabled={!inputFolders.length || starting}
+              onClick={() =>
+                session ? setConfirmation("replace") : startAnalysis()
+              }
+            >
+              {starting ? (
+                <Loader2 className="animate-spin" size={17} />
+              ) : (
+                <ScanLine size={17} />
+              )}{" "}
+              {t(starting ? "landing.starting" : "landing.startCulling")}
+              <ArrowRight size={16} />
+            </Button>
+          )}
+          <p className="source-safety">
+            <ShieldCheck size={14} />
+            {t("import.safe")}
+          </p>
+        </section>
       </div>
-
-      {/* Blob animation keyframes */}
-      <style>{`
-        @keyframes blob1 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(60px, -40px) scale(1.1); }
-          66% { transform: translate(-30px, 30px) scale(0.95); }
-        }
-        @keyframes blob2 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(-50px, 30px) scale(0.95); }
-          66% { transform: translate(40px, -20px) scale(1.08); }
-        }
-        @keyframes blob3 {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); }
-          33% { transform: translate(-50%, -50%) scale(1.15); }
-          66% { transform: translate(-50%, -50%) scale(0.9); }
-        }
-        .animate-blob-1 { animation: blob1 20s ease-in-out infinite; }
-        .animate-blob-2 { animation: blob2 25s ease-in-out infinite; }
-        .animate-blob-3 { animation: blob3 22s ease-in-out infinite; }
-      `}</style>
+      <footer className="import-footer">
+        <span>Fikret Yüksel Foundation</span>
+        <span>FRC media tools</span>
+      </footer>
     </div>
   );
 }

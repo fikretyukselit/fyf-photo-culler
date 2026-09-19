@@ -1,13 +1,10 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowRight,
+  ArrowLeft,
+  AlertCircle,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -74,9 +71,34 @@ const REJECT_REASONS = [
 // ─── Category Tabs ───────────────────────────────────────────
 
 const CATEGORIES = [
-  { key: "keep", tKey: "review.keep" as const, color: "bg-green-500", text: "text-green-400", border: "border-green-500" },
-  { key: "maybe", tKey: "review.maybe" as const, color: "bg-amber-500", text: "text-amber-400", border: "border-amber-500" },
-  { key: "reject", tKey: "review.reject" as const, color: "bg-red-500", text: "text-red-400", border: "border-red-500" },
+  {
+    key: "all",
+    tKey: "review.all" as const,
+    color: "bg-foreground",
+    text: "text-foreground",
+    border: "border-foreground",
+  },
+  {
+    key: "keep",
+    tKey: "review.keep" as const,
+    color: "bg-green-500",
+    text: "text-green-400",
+    border: "border-green-500",
+  },
+  {
+    key: "maybe",
+    tKey: "review.maybe" as const,
+    color: "bg-amber-500",
+    text: "text-amber-400",
+    border: "border-amber-500",
+  },
+  {
+    key: "reject",
+    tKey: "review.reject" as const,
+    color: "bg-red-500",
+    text: "text-red-400",
+    border: "border-red-500",
+  },
 ] as const;
 
 function CategoryTabs() {
@@ -84,27 +106,32 @@ function CategoryTabs() {
   const { t } = useLocale();
 
   return (
-    <div className="flex gap-1">
+    <div
+      className="flex flex-wrap gap-1"
+      role="group"
+      aria-label={t("review.heading")}
+    >
       {CATEGORIES.map((cat) => {
         const active = activeCategory === cat.key;
         const count =
-          summary[cat.key as keyof typeof summary] ?? 0;
+          (cat.key === "all" ? summary.total : summary[cat.key]) ?? 0;
         return (
           <button
             key={cat.key}
+            aria-pressed={active}
             onClick={() => setActiveCategory(cat.key)}
             className={cn(
               "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
               active
-                ? `${cat.color}/15 ${cat.text}`
-                : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground/70"
+                ? `bg-foreground/5 ${cat.text}`
+                : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground/70",
             )}
           >
             {t(cat.tKey)}
             <span
               className={cn(
                 "rounded-full px-1.5 py-0.5 text-xs tabular-nums",
-                active ? `${cat.color}/20` : "bg-foreground/5"
+                active ? "bg-foreground/10" : "bg-foreground/5",
               )}
             >
               {count}
@@ -126,7 +153,8 @@ function SortDropdown() {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -138,8 +166,19 @@ function SortDropdown() {
   ];
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          setOpen(false);
+          ref.current?.querySelector("button")?.focus();
+        }
+      }}
+    >
       <button
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 rounded-lg bg-foreground/5 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-foreground/10"
       >
@@ -157,7 +196,9 @@ function SortDropdown() {
               }}
               className={cn(
                 "w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-foreground/10",
-                sortBy === opt.value ? "text-amber-400" : "text-muted-foreground"
+                sortBy === opt.value
+                  ? "text-amber-400"
+                  : "text-muted-foreground",
               )}
             >
               {t(opt.tKey)}
@@ -178,14 +219,16 @@ function numberOrNull(v: string): number | null {
 }
 
 function FilterPanel() {
-  const { filters, setFilters, clearFilters, activeCategory } = usePhotosStore();
+  const { filters, setFilters, clearFilters, activeCategory } =
+    usePhotosStore();
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -194,14 +237,25 @@ function FilterPanel() {
   const activeCount = countActiveFilters(filters);
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          setOpen(false);
+          ref.current?.querySelector("button")?.focus();
+        }
+      }}
+    >
       <button
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         className={cn(
           "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors",
           activeCount > 0
             ? "bg-amber-500/15 text-amber-400"
-            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
         )}
       >
         <Filter className="size-3.5" />
@@ -224,8 +278,13 @@ function FilterPanel() {
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filter.min")}
+                aria-label={`${t("filter.scoreRange")} ${t("filter.min")}`}
+                min={0}
+                max={100}
                 value={filters.minScore ?? ""}
-                onChange={(e) => setFilters({ minScore: numberOrNull(e.target.value) })}
+                onChange={(e) =>
+                  setFilters({ minScore: numberOrNull(e.target.value) })
+                }
                 className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
               />
               <span className="text-muted-foreground">–</span>
@@ -233,8 +292,13 @@ function FilterPanel() {
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filter.max")}
+                aria-label={`${t("filter.scoreRange")} ${t("filter.max")}`}
+                min={0}
+                max={100}
                 value={filters.maxScore ?? ""}
-                onChange={(e) => setFilters({ maxScore: numberOrNull(e.target.value) })}
+                onChange={(e) =>
+                  setFilters({ maxScore: numberOrNull(e.target.value) })
+                }
                 className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
               />
             </div>
@@ -250,8 +314,12 @@ function FilterPanel() {
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filter.min")}
+                aria-label={`${t("filter.isoRange")} ${t("filter.min")}`}
+                min={0}
                 value={filters.minIso ?? ""}
-                onChange={(e) => setFilters({ minIso: numberOrNull(e.target.value) })}
+                onChange={(e) =>
+                  setFilters({ minIso: numberOrNull(e.target.value) })
+                }
                 className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
               />
               <span className="text-muted-foreground">–</span>
@@ -259,8 +327,12 @@ function FilterPanel() {
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filter.max")}
+                aria-label={`${t("filter.isoRange")} ${t("filter.max")}`}
+                min={0}
                 value={filters.maxIso ?? ""}
-                onChange={(e) => setFilters({ maxIso: numberOrNull(e.target.value) })}
+                onChange={(e) =>
+                  setFilters({ maxIso: numberOrNull(e.target.value) })
+                }
                 className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
               />
             </div>
@@ -273,9 +345,12 @@ function FilterPanel() {
                 {t("filter.rejectReason")}
               </label>
               <select
+                aria-label={t("filter.rejectReason")}
                 value={filters.rejectReason ?? ""}
                 onChange={(e) =>
-                  setFilters({ rejectReason: e.target.value === "" ? null : e.target.value })
+                  setFilters({
+                    rejectReason: e.target.value === "" ? null : e.target.value,
+                  })
                 }
                 className="w-full rounded-md bg-foreground/5 px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-amber-400/50"
               >
@@ -291,12 +366,13 @@ function FilterPanel() {
 
           {/* Mismatch toggle */}
           <button
+            aria-pressed={filters.mismatch}
             onClick={() => setFilters({ mismatch: !filters.mismatch })}
             className={cn(
               "mb-3 w-full rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               filters.mismatch
                 ? "bg-amber-500/20 text-amber-300"
-                : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
             )}
           >
             {t("filter.mismatch")}
@@ -335,7 +411,7 @@ function FolderChips() {
   if (folders.length < 2) return null;
 
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-white/10 px-4 py-1.5">
+    <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border px-4 py-1.5">
       <FolderOpen className="size-3.5 shrink-0 text-muted-foreground/60" />
       <button
         onClick={() => setFolderFilter(null)}
@@ -343,7 +419,7 @@ function FolderChips() {
           "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
           folderFilter == null
             ? "bg-amber-500/15 text-amber-400"
-            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+            : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
         )}
       >
         {t("folder.all")}
@@ -352,12 +428,14 @@ function FolderChips() {
         <button
           key={f.path}
           title={f.path}
-          onClick={() => setFolderFilter(folderFilter === f.path ? null : f.path)}
+          onClick={() =>
+            setFolderFilter(folderFilter === f.path ? null : f.path)
+          }
           className={cn(
             "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
             folderFilter === f.path
               ? "bg-amber-500/15 text-amber-400"
-              : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+              : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
           )}
         >
           {f.name}
@@ -392,12 +470,20 @@ function DensityToggle() {
       {DENSITIES.map((d) => (
         <button
           key={d.key}
+          aria-pressed={density === d.key}
+          aria-label={t(
+            d.key === "s"
+              ? "review.small"
+              : d.key === "m"
+                ? "review.medium"
+                : "review.large",
+          )}
           onClick={() => setDensity(d.key)}
           className={cn(
             "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
             density === d.key
               ? "bg-foreground/15 text-foreground"
-              : "text-muted-foreground hover:text-foreground/70"
+              : "text-muted-foreground hover:text-foreground/70",
           )}
         >
           {d.label}
@@ -430,6 +516,7 @@ function PhotoCard({
 }: PhotoCardProps) {
   const { t } = useLocale();
   const [loaded, setLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const score = photo.quality_score ?? 0;
   const scoreDot =
     score >= 70 ? "bg-keep" : score >= 40 ? "bg-maybe" : "bg-reject";
@@ -453,13 +540,15 @@ function PhotoCard({
       )}
       <div
         className={cn(
-          "group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-card transition-all duration-200",
+          "photo-card group relative cursor-pointer overflow-hidden rounded-lg border border-border bg-card transition-colors duration-150",
           "border-l-[3px]",
           borderColor,
           isSelected && "ring-2 ring-amber-400/60",
-          isFocused && "ring-2 ring-amber-300",
-          "hover:border-foreground/15 hover:shadow-lg hover:shadow-black/30"
+          isFocused && "outline-2 outline-offset-2 outline-foreground/60",
+          "hover:border-foreground/15 hover:shadow-lg hover:shadow-black/30",
         )}
+        role="group"
+        aria-label={photo.filename}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
       >
@@ -471,11 +560,17 @@ function PhotoCard({
             loading="lazy"
             decoding="async"
             onLoad={() => setLoaded(true)}
+            onError={() => setImageFailed(true)}
             className={cn(
-              "h-full w-full object-cover transition-opacity duration-200",
-              loaded ? "opacity-100" : "opacity-0"
+              "h-full w-full object-contain transition-opacity duration-200",
+              loaded ? "opacity-100" : "opacity-0",
             )}
           />
+          {imageFailed && (
+            <span className="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-muted-foreground">
+              {t("review.imageFailed")}
+            </span>
+          )}
           {/* Score badge — quiet dark pill so it never fights the photo */}
           <div className="absolute right-2 top-2 flex items-center gap-1.5 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white backdrop-blur-sm">
             <span className={cn("size-1.5 rounded-full", scoreDot)} />
@@ -492,17 +587,19 @@ function PhotoCard({
                 onOpenGroup(photo.group_id!);
               }}
             >
-              <Layers className="size-3" />
-              ×{photo.group_size}
+              <Layers className="size-3" />×{photo.group_size}
             </button>
           )}
           {/* Selection checkbox */}
-          <div
+          <button
+            type="button"
+            aria-pressed={isSelected}
+            aria-label={t("review.selection", { name: photo.filename })}
             className={cn(
-              "absolute left-2 top-2 flex size-5 items-center justify-center rounded border transition-all",
+              "photo-select absolute left-2 top-2 flex size-5 items-center justify-center rounded border transition-all",
               isSelected
                 ? "border-amber-400 bg-amber-400 text-black"
-                : "border-foreground/30 bg-background/40 opacity-0 group-hover:opacity-100"
+                : "border-white/70 bg-black/40 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
             )}
             onClick={(e) => {
               e.stopPropagation();
@@ -510,11 +607,31 @@ function PhotoCard({
             }}
           >
             {isSelected && <Check className="size-3" />}
-          </div>
+          </button>
         </div>
         {/* Filename */}
-        <div className="px-2 py-1.5">
-          <p className="truncate text-xs text-muted-foreground">{photo.filename}</p>
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <p className="flex-1 truncate text-xs text-muted-foreground">
+            {photo.filename}
+          </p>
+          <span
+            title={t(
+              cat === "keep"
+                ? "review.keep"
+                : cat === "maybe"
+                  ? "review.maybe"
+                  : "review.reject",
+            )}
+            className="text-muted-foreground"
+          >
+            {cat === "keep" ? (
+              <Check size={12} />
+            ) : cat === "maybe" ? (
+              <Star size={12} />
+            ) : (
+              <X size={12} />
+            )}
+          </span>
         </div>
       </div>
     </div>
@@ -540,7 +657,7 @@ function PhotoDetail() {
 
   const visible = useMemo(
     () => visiblePhotos(photos, activeCategory),
-    [photos, activeCategory]
+    [photos, activeCategory],
   );
   const idx = Math.min(Math.max(focusIdx, 0), visible.length - 1);
   const photo = detailOpen && visible.length > 0 ? visible[idx] : null;
@@ -549,7 +666,11 @@ function PhotoDetail() {
 
   const score = photo.quality_score ?? 0;
   const scoreColor =
-    score >= 70 ? "text-green-400" : score >= 40 ? "text-amber-400" : "text-red-400";
+    score >= 70
+      ? "text-green-400"
+      : score >= 40
+        ? "text-amber-400"
+        : "text-red-400";
 
   const bars = [
     { tKey: "detail.sharpness" as const, value: photo.sharpness },
@@ -559,13 +680,17 @@ function PhotoDetail() {
   ];
 
   async function handleReset() {
-    await api.resetOverride(photo!.id);
-    const [updated, summaryRes] = await Promise.all([
-      api.getPhoto(photo!.id),
-      api.getSummary(),
-    ]);
-    updatePhotoDestination(photo!.id, updated.destination);
-    setSummary(summaryRes);
+    try {
+      await api.resetOverride(photo!.id);
+      const [updated, summaryRes] = await Promise.all([
+        api.getPhoto(photo!.id),
+        api.getSummary(),
+      ]);
+      updatePhotoDestination(photo!.id, updated.destination);
+      setSummary(summaryRes);
+    } catch {
+      usePhotosStore.getState().setToast(t("triage.failed"));
+    }
   }
 
   function formatFileSize(bytes: number | null): string {
@@ -576,7 +701,7 @@ function PhotoDetail() {
   }
 
   return (
-    <div className="glass relative z-10 flex h-full w-[380px] shrink-0 flex-col overflow-y-auto border-l border-border">
+    <div className="photo-inspector glass relative z-10 flex h-full shrink-0 flex-col overflow-hidden border-l border-border">
       {/* Header */}
       <div className="flex items-center gap-1 border-b border-border px-4 py-2.5">
         <h3 className="text-sm font-semibold">{t("review.photoDetails")}</h3>
@@ -608,6 +733,7 @@ function PhotoDetail() {
             <Maximize2 className="size-4" />
           </button>
           <button
+            aria-label={t("review.close")}
             onClick={() => setDetailOpen(false)}
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
           >
@@ -616,144 +742,170 @@ function PhotoDetail() {
         </div>
       </div>
 
-      {/* Preview — 1024px derivative, sharp enough to judge focus */}
-      <div
-        className="group relative aspect-[4/3] w-full shrink-0 cursor-zoom-in overflow-hidden bg-black/40"
-        onClick={() => setLoupeOpen(true)}
-      >
-        <img
-          key={photo.id}
-          src={api.previewUrl(photo.id)}
-          alt={photo.filename}
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-contain"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-200 group-hover:bg-black/20 group-hover:opacity-100">
-          <span className="font-medium text-white drop-shadow-md">{t("review.zoomHint")}</span>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Preview — 1024px derivative, sharp enough to judge focus */}
+        <div
+          className="group relative aspect-[4/3] w-full shrink-0 cursor-zoom-in overflow-hidden bg-black/40"
+          onClick={() => setLoupeOpen(true)}
+        >
+          <img
+            key={photo.id}
+            src={api.previewUrl(photo.id)}
+            alt={photo.filename}
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-200 group-hover:bg-black/20 group-hover:opacity-100">
+            <span className="font-medium text-white drop-shadow-md">
+              {t("review.zoomHint")}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-4 p-4">
+          {/* File info */}
+          <div>
+            <p className="font-medium">{photo.filename}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {photo.path}
+            </p>
+            {photo.folder && (
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/70">
+                <FolderOpen className="size-3" />
+                {photo.folder.split("/").pop()}
+              </p>
+            )}
+          </div>
+
+          {/* Group link */}
+          {photo.group_id != null && (photo.group_size ?? 0) > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-1.5 text-xs"
+              onClick={() => setActiveGroupId(photo.group_id!)}
+            >
+              <Layers className="size-3.5" />
+              {t("group.view", { n: photo.group_size! })}
+            </Button>
+          )}
+
+          {/* Quality score */}
+          <div className="flex items-center gap-3">
+            <span className={cn("text-3xl font-bold tabular-nums", scoreColor)}>
+              {Math.round(score)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {t("detail.quality")}
+            </span>
+          </div>
+
+          {/* Score breakdown */}
+          <div className="space-y-2">
+            {bars.map((bar) => {
+              const val = bar.value ?? 0;
+              const barColor =
+                val >= 70
+                  ? "bg-green-500"
+                  : val >= 40
+                    ? "bg-amber-500"
+                    : "bg-red-500";
+              return (
+                <div key={bar.tKey}>
+                  <div className="mb-0.5 flex justify-between text-xs">
+                    <span className="text-muted-foreground">{t(bar.tKey)}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {Math.round(val)}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-foreground/5">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        barColor,
+                      )}
+                      style={{ width: `${Math.min(100, val)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* EXIF data */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg bg-foreground/5 px-2.5 py-2">
+              <span className="text-muted-foreground">ISO</span>
+              <p className="font-medium tabular-nums">{photo.iso ?? "—"}</p>
+            </div>
+            <div className="rounded-lg bg-foreground/5 px-2.5 py-2">
+              <span className="text-muted-foreground">
+                {t("review.shutter")}
+              </span>
+              <p className="font-medium tabular-nums">
+                {photo.shutter_speed != null && photo.shutter_speed > 0
+                  ? photo.shutter_speed < 1
+                    ? `1/${Math.round(1 / photo.shutter_speed)} s`
+                    : `${photo.shutter_speed} s`
+                  : "—"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-foreground/5 px-2.5 py-2">
+              <span className="text-muted-foreground">
+                {t("review.aperture")}
+              </span>
+              <p className="font-medium tabular-nums">
+                {photo.aperture != null ? `f/${photo.aperture}` : "—"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-foreground/5 px-2.5 py-2">
+              <span className="text-muted-foreground">
+                {t("detail.fileSize")}
+              </span>
+              <p className="font-medium tabular-nums">
+                {formatFileSize(photo.file_size)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div className="flex-1 space-y-4 p-4">
-        {/* File info */}
-        <div>
-          <p className="font-medium">{photo.filename}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{photo.path}</p>
-          {photo.folder && (
-            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/70">
-              <FolderOpen className="size-3" />
-              {photo.folder.split("/").pop()}
-            </p>
-          )}
-        </div>
-
-        {/* Group link */}
-        {photo.group_id != null && (photo.group_size ?? 0) > 1 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-1.5 text-xs"
-            onClick={() => setActiveGroupId(photo.group_id!)}
-          >
-            <Layers className="size-3.5" />
-            {t("group.view", { n: photo.group_size! })}
-          </Button>
-        )}
-
-        {/* Quality score */}
-        <div className="flex items-center gap-3">
-          <span className={cn("text-3xl font-bold tabular-nums", scoreColor)}>
-            {Math.round(score)}
-          </span>
-          <span className="text-sm text-muted-foreground">{t("detail.quality")}</span>
-        </div>
-
-        {/* Score breakdown */}
-        <div className="space-y-2">
-          {bars.map((bar) => {
-            const val = bar.value ?? 0;
-            const barColor =
-              val >= 70 ? "bg-green-500" : val >= 40 ? "bg-amber-500" : "bg-red-500";
-            return (
-              <div key={bar.tKey}>
-                <div className="mb-0.5 flex justify-between text-xs">
-                  <span className="text-muted-foreground">{t(bar.tKey)}</span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {Math.round(val)}
-                  </span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-foreground/5">
-                  <div
-                    className={cn("h-full rounded-full transition-all", barColor)}
-                    style={{ width: `${Math.min(100, val)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* EXIF data */}
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-lg bg-white/5 px-2.5 py-2">
-            <span className="text-white/40">ISO</span>
-            <p className="font-medium tabular-nums">{photo.iso ?? "—"}</p>
-          </div>
-          <div className="rounded-lg bg-white/5 px-2.5 py-2">
-            <span className="text-white/40">Shutter</span>
-            <p className="font-medium tabular-nums">{photo.shutter_speed ?? "—"}</p>
-          </div>
-          <div className="rounded-lg bg-white/5 px-2.5 py-2">
-            <span className="text-white/40">Aperture</span>
-            <p className="font-medium tabular-nums">
-              {photo.aperture != null ? `f/${photo.aperture}` : "—"}
-            </p>
-          </div>
-          <div className="rounded-lg bg-white/5 px-2.5 py-2">
-            <span className="text-white/40">{t("detail.fileSize")}</span>
-            <p className="font-medium tabular-nums">
-              {formatFileSize(photo.file_size)}
-            </p>
-          </div>
-        </div>
-
-        {/* Override buttons — optimistic; focus stays put so the next photo
+      {/* Override buttons — optimistic; focus stays put so the next photo
             slides into the panel automatically */}
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              className="flex-1 gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25"
-              onClick={() => triage([photo.id], "keep")}
-            >
-              <Check className="size-3.5" />
-              {t("review.keep")}
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1 gap-1.5 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25"
-              onClick={() => triage([photo.id], "maybe")}
-            >
-              <Star className="size-3.5" />
-              {t("review.maybe")}
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1 gap-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25"
-              onClick={() => triage([photo.id], "reject")}
-            >
-              <Trash2 className="size-3.5" />
-              {t("review.reject")}
-            </Button>
-          </div>
+      <div className="inspector-actions shrink-0 space-y-2 border-t border-border bg-card p-3">
+        <div className="flex gap-2">
           <Button
-            variant="outline"
             size="sm"
-            className="w-full text-xs"
-            onClick={handleReset}
+            className="flex-1 gap-1.5 bg-green-500/15 text-green-400 hover:bg-green-500/25"
+            onClick={() => triage([photo.id], "keep")}
           >
-            {t("review.resetOriginal")}
+            <Check className="size-3.5" />
+            {t("review.keep")}
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1 gap-1.5 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25"
+            onClick={() => triage([photo.id], "maybe")}
+          >
+            <Star className="size-3.5" />
+            {t("review.maybe")}
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1 gap-1.5 bg-red-500/15 text-red-400 hover:bg-red-500/25"
+            onClick={() => triage([photo.id], "reject")}
+          >
+            <Trash2 className="size-3.5" />
+            {t("review.reject")}
           </Button>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full text-xs"
+          onClick={handleReset}
+        >
+          {t("review.resetOriginal")}
+        </Button>
       </div>
     </div>
   );
@@ -784,8 +936,8 @@ function SelectionBar() {
   }
 
   return (
-    <div className="glass flex items-center gap-3 border-t border-white/10 px-4 py-2">
-      <span className="text-sm font-medium text-white/70">
+    <div className="review-selection glass flex items-center gap-3 border-t border-border px-4 py-2">
+      <span className="text-sm font-medium text-foreground/70">
         {count} {t("review.selected")}
       </span>
       {canCompare && (
@@ -827,7 +979,7 @@ function SelectionBar() {
       <Button
         variant="ghost"
         size="xs"
-        className="ml-auto text-white/40"
+        className="ml-auto text-muted-foreground"
         onClick={clearSelection}
       >
         {t("review.clearSelection")}
@@ -840,13 +992,19 @@ function SelectionBar() {
 
 function ShortcutsHelp() {
   const [open, setOpen] = useState(false);
+  const dialogRef = useDialogFocus(open);
   const { t } = useLocale();
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        !open &&
+        (e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          (e.target instanceof HTMLElement &&
+            (!!e.target.closest("select, [contenteditable=true]") ||
+              (["Enter", " "].includes(e.key) &&
+                !!e.target.closest("button")))))
       )
         return;
       if (!open) {
@@ -890,17 +1048,23 @@ function ShortcutsHelp() {
       </button>
       {open && (
         <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("shortcuts.title")}
+          tabIndex={-1}
           className="fixed inset-0 z-[105] flex items-center justify-center bg-black/70 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
           <div
-            className="glass w-full max-w-sm rounded-2xl border border-white/10 p-5"
+            className="glass w-full max-w-sm rounded-2xl border border-border p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center gap-2">
               <Keyboard className="size-4 text-amber-400" />
               <h3 className="text-sm font-semibold">{t("shortcuts.title")}</h3>
               <button
+                aria-label={t("review.close")}
                 onClick={() => setOpen(false)}
                 className="ml-auto rounded p-1 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
               >
@@ -909,7 +1073,10 @@ function ShortcutsHelp() {
             </div>
             <div className="space-y-2">
               {rows.map((row) => (
-                <div key={row.keys} className="flex items-center justify-between gap-4 text-sm">
+                <div
+                  key={row.keys}
+                  className="flex items-center justify-between gap-4 text-sm"
+                >
                   <span className="text-muted-foreground">{t(row.tKey)}</span>
                   <kbd className="shrink-0 rounded-md bg-foreground/10 px-2 py-0.5 text-xs font-medium tabular-nums">
                     {row.keys}
@@ -928,9 +1095,20 @@ function ShortcutsHelp() {
 
 function Toast() {
   const { toast } = usePhotosStore();
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(
+      () => usePhotosStore.getState().setToast(null),
+      5000,
+    );
+    return () => clearTimeout(timer);
+  }, [toast]);
   if (!toast) return null;
   return (
-    <div className="pointer-events-none fixed bottom-16 left-1/2 z-[110] -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg">
+    <div
+      role="alert"
+      className="pointer-events-none fixed bottom-16 left-1/2 z-[110] -translate-x-1/2 rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white shadow-lg"
+    >
       {toast}
     </div>
   );
@@ -965,6 +1143,9 @@ function PhotoGrid() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(4);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const paging = useRef(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -973,14 +1154,18 @@ function PhotoGrid() {
   // generation are dropped so a slow request can't overwrite a newer one.
   const requestGen = useRef(0);
 
-  const colWidth = DENSITY_COL_WIDTH[density];
+  const targetWidth = DENSITY_COL_WIDTH[density];
+  const colWidth =
+    availableWidth > 0
+      ? Math.max(100, (availableWidth - GAP * (cols - 1)) / cols)
+      : targetWidth;
   const rowHeight = Math.round(colWidth * 0.75) + CARD_CAPTION_HEIGHT;
 
   // The server already applied category + filters + sort; we only re-check the
   // category so optimistically-triaged photos drop out immediately.
   const filteredPhotos = useMemo(
     () => visiblePhotos(photos, activeCategory),
-    [photos, activeCategory]
+    [photos, activeCategory],
   );
 
   // Responsive columns. The skeleton/empty branches render without the
@@ -991,11 +1176,12 @@ function PhotoGrid() {
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const w = entries[0].contentRect.width;
-      setCols(Math.max(1, Math.floor((w + GAP) / (colWidth + GAP))));
+      setAvailableWidth(w);
+      setCols(Math.max(1, Math.floor((w + GAP) / (targetWidth + GAP))));
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [colWidth, hasPhotos]);
+  }, [targetWidth, hasPhotos]);
 
   const rowCount = Math.ceil(filteredPhotos.length / cols);
 
@@ -1011,59 +1197,72 @@ function PhotoGrid() {
     virtualizer.measure();
   }, [rowHeight, virtualizer]);
 
-  const loadPhotos = useCallback(async (p: number) => {
-    const gen = p === 1 ? ++requestGen.current : requestGen.current;
-    setLoading(true);
-    try {
-      const store = usePhotosStore.getState();
-      const res = await api.getPhotos(
-        store.activeCategory,
-        p,
-        PAGE_SIZE,
-        filtersToParams(store.filters),
-        {
-          sort: store.sortBy === "filename" ? "filename" : "score",
-          folder: store.folderFilter,
+  const loadPhotos = useCallback(
+    async (p: number) => {
+      const gen = p === 1 ? ++requestGen.current : requestGen.current;
+      setLoading(true);
+      setLoadError(false);
+      try {
+        const store = usePhotosStore.getState();
+        const res = await api.getPhotos(
+          store.activeCategory,
+          p,
+          PAGE_SIZE,
+          filtersToParams(store.filters),
+          {
+            sort: store.sortBy === "filename" ? "filename" : "score",
+            folder: store.folderFilter,
+          },
+        );
+        // Category/filter/sort changed while this request was in flight —
+        // discard it; the newer request owns the grid now.
+        if (gen !== requestGen.current) return;
+        if (p === 1) {
+          setPhotos(res.photos);
+        } else {
+          const current = usePhotosStore.getState().photos;
+          const existing = new Set(current.map((ph) => ph.id));
+          const newPhotos = res.photos.filter((ph) => !existing.has(ph.id));
+          setPhotos([...current, ...newPhotos]);
         }
-      );
-      // Category/filter/sort changed while this request was in flight —
-      // discard it; the newer request owns the grid now.
-      if (gen !== requestGen.current) return;
-      if (p === 1) {
-        setPhotos(res.photos);
-      } else {
-        const current = usePhotosStore.getState().photos;
-        const existing = new Set(current.map((ph) => ph.id));
-        const newPhotos = res.photos.filter((ph) => !existing.has(ph.id));
-        setPhotos([...current, ...newPhotos]);
+        const totalPages = Math.ceil(res.total / res.limit);
+        setHasMore(p < totalPages);
+        setPage(p);
+      } catch {
+        if (gen === requestGen.current) setLoadError(true);
       }
-      const totalPages = Math.ceil(res.total / res.limit);
-      setHasMore(p < totalPages);
-    } catch {
-      // ignore
-    }
-    if (gen === requestGen.current) setLoading(false);
-  }, [setPhotos]);
+      if (gen === requestGen.current) setLoading(false);
+    },
+    [setPhotos],
+  );
 
   // Reload on category/filter/folder/sort change, or when undo/redo bumps
   // reloadToken. Resets pagination and scroll position.
   useEffect(() => {
     setPage(1);
+    setPhotos([]);
     setHasMore(true);
     loadPhotos(1);
     containerRef.current?.scrollTo({ top: 0 });
+    return () => {
+      requestGen.current++;
+    };
   }, [activeCategory, filters, folderFilter, sortBy, reloadToken, loadPhotos]);
 
   const loadMore = useCallback(async () => {
-    const next = page + 1;
-    setPage(next);
-    await loadPhotos(next);
-  }, [page, loadPhotos]);
+    if (paging.current || loading) return;
+    paging.current = true;
+    try {
+      await loadPhotos(page + 1);
+    } finally {
+      paging.current = false;
+    }
+  }, [page, loadPhotos, loading]);
 
   // Load more when scrolling near the bottom.
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || !hasMore) return;
+    if (!el || !hasMore || loadError) return;
     function handleScroll() {
       if (!el) return;
       const threshold = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -1073,7 +1272,7 @@ function PhotoGrid() {
     }
     el.addEventListener("scroll", handleScroll);
     return () => el.removeEventListener("scroll", handleScroll);
-  }, [hasMore, loading, loadMore]);
+  }, [hasMore, loading, loadMore, hasPhotos, loadError]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1081,7 +1280,10 @@ function PhotoGrid() {
       // Ignore if typing in input
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement &&
+          (!!e.target.closest("select, [contenteditable=true]") ||
+            (["Enter", " "].includes(e.key) && !!e.target.closest("button"))))
       )
         return;
       if (e.metaKey || e.ctrlKey) return; // undo/redo handled elsewhere
@@ -1100,15 +1302,17 @@ function PhotoGrid() {
       // Triage targets: the selection when one exists, else the focused photo.
       const triageTargets = (): string[] => {
         if (store.selectedIds.size > 0) return Array.from(store.selectedIds);
-        if (focusIdx >= 0 && focusIdx < filteredPhotos.length) {
-          return [filteredPhotos[focusIdx].id];
+        if (store.focusIdx >= 0 && store.focusIdx < filteredPhotos.length) {
+          return [filteredPhotos[store.focusIdx].id];
         }
         return [];
       };
 
       switch (e.key.toLowerCase()) {
         case "c": {
-          const selected = store.photos.filter((p) => store.selectedIds.has(p.id));
+          const selected = store.photos.filter((p) =>
+            store.selectedIds.has(p.id),
+          );
           if (selected.length >= 2 && selected.length <= 4) {
             store.setComparePhotos(selected);
           }
@@ -1140,7 +1344,7 @@ function PhotoGrid() {
           break;
         case "enter":
           if (filteredPhotos.length > 0) {
-            if (focusIdx < 0) setFocusIdx(0);
+            if (store.focusIdx < 0) setFocusIdx(0);
             setLoupeOpen(true);
           }
           break;
@@ -1151,25 +1355,27 @@ function PhotoGrid() {
           break;
         case " ":
           e.preventDefault();
-          if (focusIdx >= 0 && focusIdx < filteredPhotos.length) {
-            store.toggleSelect(filteredPhotos[focusIdx].id);
+          if (store.focusIdx >= 0 && store.focusIdx < filteredPhotos.length) {
+            store.toggleSelect(filteredPhotos[store.focusIdx].id);
           }
           break;
         case "arrowright":
           e.preventDefault();
-          setFocusIdx(Math.min(focusIdx + 1, filteredPhotos.length - 1));
+          setFocusIdx(Math.min(store.focusIdx + 1, filteredPhotos.length - 1));
           break;
         case "arrowleft":
           e.preventDefault();
-          setFocusIdx(Math.max(focusIdx - 1, 0));
+          setFocusIdx(Math.max(store.focusIdx - 1, 0));
           break;
         case "arrowdown":
           e.preventDefault();
-          setFocusIdx(Math.min(focusIdx + cols, filteredPhotos.length - 1));
+          setFocusIdx(
+            Math.min(store.focusIdx + cols, filteredPhotos.length - 1),
+          );
           break;
         case "arrowup":
           e.preventDefault();
-          setFocusIdx(Math.max(focusIdx - cols, 0));
+          setFocusIdx(Math.max(store.focusIdx - cols, 0));
           break;
       }
     }
@@ -1191,7 +1397,9 @@ function PhotoGrid() {
       <div className="flex-1 overflow-hidden px-4 py-3">
         <div
           className="grid gap-3"
-          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${colWidth}px, 1fr))` }}
+          style={{
+            gridTemplateColumns: `repeat(auto-fill, minmax(${colWidth}px, 1fr))`,
+          }}
         >
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="animate-pulse">
@@ -1204,20 +1412,57 @@ function PhotoGrid() {
     );
   }
 
-  if (filteredPhotos.length === 0 && !loading) {
-    const filtersActive = countActiveFilters(filters) > 0 || folderFilter != null;
+  if (loadError && filteredPhotos.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-white/30">
+      <div
+        className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center"
+        role="alert"
+      >
+        <AlertCircle className="size-8 text-muted-foreground" />
+        <h2 className="text-sm font-medium">{t("review.loadFailed")}</h2>
+        <p className="max-w-sm text-xs text-muted-foreground">
+          {t("review.loadHint")}
+        </p>
+        <Button variant="outline" onClick={() => loadPhotos(1)}>
+          {t("review.retry")}
+        </Button>
+      </div>
+    );
+  }
+
+  if (filteredPhotos.length === 0 && !loading) {
+    const filtersActive =
+      countActiveFilters(filters) > 0 || folderFilter != null;
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
         <ImageIcon className="size-12" />
         <p className="text-sm">
           {filtersActive ? t("filter.noMatches") : t("review.noPhotos")}
         </p>
+        {filtersActive && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              usePhotosStore.getState().clearFilters();
+              usePhotosStore.getState().setFolderFilter(null);
+            }}
+          >
+            {t("review.resetFilters")}
+          </Button>
+        )}
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3">
+    <div
+      ref={containerRef}
+      className="photo-grid min-w-0 flex-1 overflow-y-auto px-5 py-4"
+      tabIndex={0}
+      role="region"
+      aria-label={t("review.heading")}
+      aria-busy={loading}
+    >
       <div
         className="relative w-full"
         style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -1238,17 +1483,15 @@ function PhotoGrid() {
               {rowPhotos.map((photo, colIdx) => {
                 const idx = startIdx + colIdx;
                 return (
-                  <div
-                    key={photo.id}
-                    style={{ width: `${colWidth}px` }}
-                  >
+                  <div key={photo.id} style={{ width: `${colWidth}px` }}>
                     <PhotoCard
                       photo={photo}
                       isSelected={selectedIds.has(photo.id)}
                       isFocused={focusIdx === idx}
                       onSelect={(e) => {
                         if (e.shiftKey && lastClickedIdx.current >= 0) {
-                          const fromPhoto = filteredPhotos[lastClickedIdx.current];
+                          const fromPhoto =
+                            filteredPhotos[lastClickedIdx.current];
                           if (fromPhoto) {
                             selectRange(fromPhoto.id, photo.id);
                           }
@@ -1274,8 +1517,20 @@ function PhotoGrid() {
           );
         })}
       </div>
+      {hasMore && !loading && (
+        <div className="flex justify-center py-4">
+          <Button variant="outline" size="sm" onClick={loadMore}>
+            {t(loadError ? "review.retry" : "review.loadMore")}
+          </Button>
+        </div>
+      )}
+      {loadError && filteredPhotos.length > 0 && (
+        <p role="alert" className="pb-3 text-center text-xs text-red-400">
+          {t("review.loadFailed")}
+        </p>
+      )}
       {loading && (
-        <div className="py-4 text-center text-sm text-white/30">
+        <div className="py-4 text-center text-sm text-muted-foreground">
           {t("review.loading")}
         </div>
       )}
@@ -1286,12 +1541,16 @@ function PhotoGrid() {
 // ─── Main Review Component ───────────────────────────────────
 
 function UndoRedo() {
-  const { canUndo, canRedo, summary, setHistory, setSummary, bumpReload } = usePhotosStore();
+  const { canUndo, canRedo, summary, setHistory, setSummary, bumpReload } =
+    usePhotosStore();
   const { t } = useLocale();
 
   // Keep undo/redo availability fresh — summary changes after every review action.
   useEffect(() => {
-    api.getHistory().then(setHistory).catch(() => {});
+    api
+      .getHistory()
+      .then(setHistory)
+      .catch(() => {});
   }, [summary, setHistory]);
 
   const run = useCallback(
@@ -1308,15 +1567,20 @@ function UndoRedo() {
         bumpReload();
       } catch (e) {
         console.error(`${kind} failed:`, e);
+        usePhotosStore.getState().setToast(t("triage.failed"));
       }
     },
-    [setHistory, setSummary, bumpReload]
+    [setHistory, setSummary, bumpReload],
   );
 
   // Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z (or Ctrl+Y) = redo.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const k = e.key.toLowerCase();
@@ -1359,61 +1623,71 @@ export function Review() {
   const { selectedIds, summary, setSummary } = usePhotosStore();
   const { t } = useLocale();
 
-  // Load the summary on mount — entering via session resume skips Processing,
-  // so nothing else has fetched it yet.
   useEffect(() => {
-    api.getSummary().then(setSummary).catch(() => {});
-  }, [setSummary]);
+    api
+      .getSummary()
+      .then(setSummary)
+      .catch(() => usePhotosStore.getState().setToast(t("review.loadFailed")));
+  }, [setSummary, t]);
 
   return (
     <div className="flex h-full flex-col">
-      {/* Top bar — z-30 so its dropdowns (sort/filter) stack above the
-          absolutely-positioned virtualized grid rows */}
-      <div className="glass relative z-30 flex items-center gap-4 border-b border-white/10 px-4 py-2">
+      <div className="review-header">
+        <div>
+          <h1>{t("review.heading")}</h1>
+          <p>{t("review.subtitle")}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            className="icon-button"
+            title={t("review.importMore")}
+            aria-label={t("review.importMore")}
+            onClick={() => setScreen("landing")}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <Button
+            onClick={() => setScreen("export")}
+            className="gap-2 font-semibold"
+          >
+            {t("review.export")}
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="review-toolbar relative z-30 flex items-center border-y border-border">
         <CategoryTabs />
+        <div className="flex-1" />
         <SortDropdown />
         <FilterPanel />
-        <UndoRedo />
-        <div className="flex-1" />
         <DensityToggle />
-        {selectedIds.size > 0 && (
-          <span className="text-xs text-white/40">
-            {selectedIds.size} {t("review.selected")}
-          </span>
-        )}
-        <span className="text-xs text-white/30">
-          {summary.total} {t("review.photosTotal")}
-        </span>
       </div>
-
-      {/* Folder (SD card) filter */}
       <FolderChips />
-
-      {/* Main area */}
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <PhotoGrid />
         <PhotoDetail />
       </div>
-
-      {/* Selection actions bar */}
       <SelectionBar />
-
-      {/* Overlays */}
       <GroupPanel />
       <Compare />
       <Loupe />
       <Toast />
-
-      {/* Bottom bar */}
-      <div className="flex items-center justify-between border-t border-white/10 px-4 py-2">
+      <div className="review-footer flex items-center justify-between gap-3 border-t border-border px-4 py-2">
+        <div className="flex items-center gap-3">
+          <UndoRedo />
+          <span className="tabular-nums">
+            {selectedIds.size > 0
+              ? `${selectedIds.size} ${t("review.selected")}`
+              : `${summary.total} ${t("review.photosTotal")}`}
+          </span>
+        </div>
+        <div className="review-key-hints">
+          <kbd>K</kbd>
+          <kbd>M</kbd>
+          <kbd>R</kbd>
+          <span>{t("review.decisions")}</span>
+        </div>
         <ShortcutsHelp />
-        <Button
-          className="gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 font-semibold text-black hover:from-amber-400 hover:to-yellow-400"
-          onClick={() => setScreen("export")}
-        >
-          {t("review.export")}
-          <ArrowRight className="size-4" />
-        </Button>
       </div>
     </div>
   );

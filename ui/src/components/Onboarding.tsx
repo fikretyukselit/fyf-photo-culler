@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Check, FolderOpen, Play, Star, Trash2, X } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  FolderOpen,
+  Play,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/lib/stores";
 import { useLocale } from "@/lib/i18n";
 
-const SCENE_MS = 3600;
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 const SCENES = 4;
 
 /** Scene 1 — SD cards slide in, the Start pill pulses. */
@@ -21,11 +29,16 @@ function SceneCards() {
             {/* SD card silhouette: clipped corner + gold contacts */}
             <div
               className="relative h-20 w-14 rounded-md border border-foreground/20 bg-foreground/10"
-              style={{ clipPath: "polygon(0 0, 72% 0, 100% 18%, 100% 100%, 0 100%)" }}
+              style={{
+                clipPath: "polygon(0 0, 72% 0, 100% 18%, 100% 100%, 0 100%)",
+              }}
             >
               <div className="absolute left-1.5 top-1.5 flex gap-0.5">
                 {[0, 1, 2, 3].map((c) => (
-                  <span key={c} className="h-2.5 w-1 rounded-sm bg-amber-400/70" />
+                  <span
+                    key={c}
+                    className="h-2.5 w-1 rounded-sm bg-amber-400/70"
+                  />
                 ))}
               </div>
               <div className="absolute inset-x-1.5 bottom-1.5 h-6 rounded-sm bg-foreground/10" />
@@ -46,15 +59,28 @@ function SceneCards() {
 
 /** Scene 2 — a grid of shimmering tiles gets scored one by one. */
 function SceneScores() {
-  const dots = ["bg-keep", "bg-keep", "bg-maybe", "bg-keep", "bg-reject", "bg-keep", "bg-maybe", "bg-keep"];
+  const dots = [
+    "bg-keep",
+    "bg-keep",
+    "bg-maybe",
+    "bg-keep",
+    "bg-reject",
+    "bg-keep",
+    "bg-maybe",
+    "bg-keep",
+  ];
   return (
     <div className="grid grid-cols-4 gap-2.5">
       {dots.map((dot, i) => (
-        <div key={i} className="ob-rise relative" style={{ animationDelay: `${i * 110}ms` }}>
+        <div
+          key={i}
+          className="ob-rise relative"
+          style={{ animationDelay: `${i * 110}ms` }}
+        >
           <div
             className={cn(
               "ob-shimmer h-14 w-[74px] rounded-lg border border-foreground/10",
-              i === 1 && "ring-2 ring-amber-400"
+              i === 1 && "ring-2 ring-amber-400",
             )}
             style={{ animationDelay: `${i * 110}ms` }}
           />
@@ -63,7 +89,11 @@ function SceneScores() {
             style={{ animationDelay: `${700 + i * 140}ms` }}
           >
             <span className={cn("size-1.5 rounded-full", dot)} />
-            {i === 1 && <span className="text-[9px] font-bold tabular-nums text-white">97</span>}
+            {i === 1 && (
+              <span className="text-[9px] font-bold tabular-nums text-white">
+                97
+              </span>
+            )}
           </span>
         </div>
       ))}
@@ -110,7 +140,13 @@ function SceneExport() {
       <div className="flex items-start gap-5">
         {cols.map((col, ci) => (
           <div key={ci} className="flex w-16 flex-col items-center gap-1.5">
-            <span className={cn("ob-rise flex size-6 items-center justify-center rounded-full", col.bg, col.color)}>
+            <span
+              className={cn(
+                "ob-rise flex size-6 items-center justify-center rounded-full",
+                col.bg,
+                col.color,
+              )}
+            >
               <col.icon className="size-3.5" />
             </span>
             {Array.from({ length: col.n }).map((_, i) => (
@@ -123,7 +159,10 @@ function SceneExport() {
           </div>
         ))}
       </div>
-      <div className="ob-pop flex items-center gap-2 text-amber-400" style={{ animationDelay: "1500ms" }}>
+      <div
+        className="ob-pop flex items-center gap-2 text-amber-400"
+        style={{ animationDelay: "1500ms" }}
+      >
         <FolderOpen className="size-4" />
         <Check className="size-3.5" />
       </div>
@@ -155,12 +194,9 @@ export function Onboarding() {
 
   const open = onboardingOpen && screen === "landing";
 
-  // Auto-advance; the last scene waits for the user.
-  useEffect(() => {
-    if (!open || scene >= SCENES - 1) return;
-    const id = setTimeout(() => setScene((s) => Math.min(s + 1, SCENES - 1)), SCENE_MS);
-    return () => clearTimeout(id);
-  }, [open, scene]);
+  const dialogRef = useDialogFocus(open);
+
+  // The user controls the pace of the walkthrough.
 
   useEffect(() => {
     if (!open) return;
@@ -168,7 +204,10 @@ export function Onboarding() {
       if (e.key === "Escape") {
         e.preventDefault();
         close();
-      } else if (e.key === "ArrowRight" || e.key === "Enter") {
+      } else if (
+        e.key === "ArrowRight" ||
+        (e.key === "Enter" && !(e.target instanceof HTMLButtonElement))
+      ) {
         e.preventDefault();
         if (scene >= SCENES - 1) close();
         else setScene((s) => s + 1);
@@ -187,7 +226,14 @@ export function Onboarding() {
   const last = scene === SCENES - 1;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 backdrop-blur-md">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("onboarding.replay")}
+      tabIndex={-1}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md"
+    >
       <div className="mx-4 w-full max-w-[520px] rounded-2xl border border-border bg-popover p-6 shadow-2xl shadow-black/50">
         {/* Header: wordmark left, skip right — its own row so nothing overlaps the stage */}
         <div className="mb-3 flex items-center justify-between">
@@ -213,8 +259,13 @@ export function Onboarding() {
 
         {/* Copy */}
         <div key={`copy-${scene}`} className="mt-5 min-h-[64px] text-center">
-          <h2 className="ob-rise text-lg font-semibold">{t(SCENE_KEYS[scene].title)}</h2>
-          <p className="ob-rise mt-1 text-sm text-muted-foreground" style={{ animationDelay: "120ms" }}>
+          <h2 className="ob-rise text-lg font-semibold">
+            {t(SCENE_KEYS[scene].title)}
+          </h2>
+          <p
+            className="ob-rise mt-1 text-sm text-muted-foreground"
+            style={{ animationDelay: "120ms" }}
+          >
             {t(SCENE_KEYS[scene].caption)}
           </p>
         </div>
@@ -229,7 +280,9 @@ export function Onboarding() {
                 aria-label={`Scene ${i + 1}`}
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-300",
-                  i === scene ? "w-6 bg-amber-400" : "w-1.5 bg-foreground/20 hover:bg-foreground/40"
+                  i === scene
+                    ? "w-6 bg-amber-400"
+                    : "w-1.5 bg-foreground/20 hover:bg-foreground/40",
                 )}
               />
             ))}
@@ -240,7 +293,7 @@ export function Onboarding() {
               "flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-all",
               last
                 ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:from-amber-400 hover:to-yellow-400"
-                : "bg-foreground/10 text-foreground hover:bg-foreground/15"
+                : "bg-foreground/10 text-foreground hover:bg-foreground/15",
             )}
           >
             {last ? t("onboarding.start") : t("onboarding.next")}
