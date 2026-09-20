@@ -23,11 +23,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
+          - platform: macos-15
             target: aarch64-apple-darwin
             sidecar_name: fyf-backend-aarch64-apple-darwin
             sidecar_sep: ":"
-          - platform: macos-latest
+          - platform: macos-15-intel
             target: x86_64-apple-darwin
             sidecar_name: fyf-backend-x86_64-apple-darwin
             sidecar_sep: ":"
@@ -93,6 +93,15 @@ jobs:
           args: --target ${{ matrix.target }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify macOS bundle signature and architecture
+        if: contains(matrix.target, 'apple-darwin')
+        env:
+          MACOS_TARGET: ${{ matrix.target }}
+        run: >-
+          python3 scripts/verify_macos_bundle.py
+          "ui/src-tauri/target/$MACOS_TARGET/release/bundle/macos/FYF Photo Culler.app"
+          --target "$MACOS_TARGET" --smoke-test
 
       - name: Rename macOS updater artifacts to include arch
         if: contains(matrix.target, 'apple-darwin')

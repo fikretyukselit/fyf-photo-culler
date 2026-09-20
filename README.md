@@ -75,6 +75,8 @@ An open-source desktop application built by volunteers of **[Fikret Yuksel Found
 
 These links always download the latest stable release for the selected platform.
 
+**macOS first launch:** Current builds use an ad-hoc signature and are not notarized by Apple. After copying the app to Applications and attempting to open it, macOS may require **System Settings → Privacy & Security → Open Anyway**. Use this only for a release you trust. See [Apple’s instructions](https://support.apple.com/en-gb/102445). The broken package signature in v0.2.3 is fixed in v0.2.4; replace the old app with the newer release.
+
 > **Auto-update:** The app automatically checks for new versions. You'll get an in-app notification when an update is available.
 
 ## Privacy and conditions of use
