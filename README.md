@@ -77,6 +77,12 @@ These links always download the latest stable release for the selected platform.
 
 > **Auto-update:** The app automatically checks for new versions. You'll get an in-app notification when an update is available.
 
+## Privacy and conditions of use
+
+Photo analysis runs on your device. The app copies categorized photos on export; it does not upload your photos to us or an AI service. Local previews and session data are saved. Automatic release checks contact GitHub after you accept the notice; cloud-synced folders remain subject to your storage provider's settings.
+
+On first launch, read the bilingual notice and select **I have read the information above and accept the conditions of use** to continue. The full text can be reopened using the book button in the titlebar. Read the [English notice](docs/usage-notice.en.md), [Türkçe bilgilendirme](docs/usage-notice.tr.md) and [MIT License](LICENSE).
+
 ## See the workflow
 
 <p align="center">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { useSessionStore } from "@/lib/stores";
 import { api } from "@/lib/api";
@@ -9,6 +9,8 @@ import { Review } from "@/components/Review";
 import { Export } from "@/components/Export";
 import { Workflow } from "@/components/Workflow";
 import { Titlebar } from "@/components/Titlebar";
+import { UsageNotice } from "@/components/UsageNotice";
+import { hasAcceptedNotice } from "@/lib/use-notice";
 import { UpdatePopup } from "@/components/UpdatePopup";
 import { invoke } from "@tauri-apps/api/core";
 import { useLocale } from "@/lib/i18n";
@@ -81,6 +83,16 @@ function App() {
   const [backendStatus, setBackendStatus] =
     useState<BackendStatus>("connecting");
   const [attempt, setAttempt] = useState(0);
+  const [accepted, setAccepted] = useState(hasAcceptedNotice);
+  const [viewNotice, setViewNotice] = useState(false);
+  const noticeOpen = !accepted || viewNotice;
+  const noticeTrigger = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!viewNotice && noticeTrigger.current) {
+      noticeTrigger.current.focus();
+      noticeTrigger.current = null;
+    }
+  }, [viewNotice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,27 +136,53 @@ function App() {
   const retry = useCallback(() => setAttempt((a) => a + 1), []);
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-background rounded-[10px]">
-      <Titlebar />
-      {backendStatus === "ready" && <UpdatePopup />}
-      {backendStatus === "ready" && <Onboarding />}
-      {/* pt matches the fixed 38px titlebar so screen content never hides under it */}
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden pt-[38px]">
-        {backendStatus !== "ready" ? (
-          <BackendGate status={backendStatus} onRetry={retry} />
-        ) : (
-          <>
-            <Workflow />
-            <div className="min-h-0 flex-1 overflow-hidden">
-              {screen === "landing" && <Landing />}
-              {screen === "processing" && <Processing />}
-              {screen === "review" && <Review />}
-              {screen === "export" && <Export />}
-            </div>
-          </>
+    <>
+      <div
+        inert={noticeOpen}
+        aria-hidden={noticeOpen}
+        className="h-screen w-screen flex flex-col overflow-hidden bg-background rounded-[10px]"
+      >
+        <Titlebar
+          onOpenNotice={() => {
+            noticeTrigger.current =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            setViewNotice(true);
+          }}
+        />
+        {accepted && backendStatus === "ready" && (
+          <UpdatePopup blocked={noticeOpen} />
         )}
-      </main>
-    </div>
+        {accepted && backendStatus === "ready" && <Onboarding />}
+        {/* pt matches the fixed 38px titlebar so screen content never hides under it */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden pt-[38px]">
+          {!accepted ? null : backendStatus !== "ready" ? (
+            <BackendGate status={backendStatus} onRetry={retry} />
+          ) : (
+            <>
+              <Workflow />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {screen === "landing" && <Landing />}
+                {screen === "processing" && <Processing />}
+                {screen === "review" && <Review />}
+                {screen === "export" && <Export />}
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+      {noticeOpen && (
+        <UsageNotice
+          required={!accepted}
+          onAccepted={() => {
+            setAccepted(true);
+            setViewNotice(false);
+          }}
+          onClose={() => setViewNotice(false)}
+        />
+      )}
+    </>
   );
 }
 

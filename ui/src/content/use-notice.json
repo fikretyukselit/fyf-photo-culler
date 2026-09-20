@@ -1,0 +1,184 @@
+{
+  "version": "2026-09-20.1",
+  "effectiveDate": "2026-09-20",
+  "en": {
+    "title": "Before your first selection",
+    "reviewTitle": "Privacy & terms",
+    "intro": "Your photos. Your device. Your decision.",
+    "description": "Please read how FYF Photo Culler works and the conditions of use before continuing.",
+    "documentTitle": "How it works & conditions of use",
+    "versionLabel": "Notice version",
+    "dateLabel": "Effective date",
+    "summary": [
+      {
+        "title": "Photo processing stays local",
+        "body": "The app does not upload your photos to us or to an AI service."
+      },
+      {
+        "title": "Export creates copies",
+        "body": "Keep, Maybe and Reject are categories. Rejecting a photo does not delete its source."
+      },
+      {
+        "title": "You make the final selection",
+        "body": "Automatic scores can be wrong. Review the results and keep a separate backup."
+      }
+    ],
+    "networkNote": "Online for updates: after acceptance, the app checks GitHub for new releases. Photo analysis itself works offline.",
+    "sections": [
+      {
+        "title": "Purpose and automated suggestions",
+        "paragraphs": [
+          "FYF Photo Culler is a free, open-source desktop tool developed by volunteers of the Fikret Yuksel Foundation. It reads JPEG/JPG images in the folders you select, including subfolders, evaluates technical image quality and visual similarity, and suggests categories for your review. Scores and similarity groups are estimates, not a guarantee of photographic quality, uniqueness or suitability. You remain responsible for the final selection."
+        ]
+      },
+      {
+        "title": "Local processing and stored information",
+        "paragraphs": [
+          "Photo analysis runs on your computer. This version does not send your photos, image metadata or selections to the Foundation, contributors or an AI service, and does not include analytics or advertising trackers. Its local processing service listens only on your computer; it is not an internet-hosted photo service.",
+          "The app creates local thumbnails and previews and saves session information, including file paths, analysis results and review decisions, so you can resume. These files may remain after closing the app. Protect access to your device and local storage; closing or uninstalling the app is not a promise that all cached or session data has been erased."
+        ]
+      },
+      {
+        "title": "Source files, export and backups",
+        "paragraphs": [
+          "The normal analysis and export workflow reads source photos and copies categorized files to the destination shown before export. It does not intentionally move, delete or overwrite source photos. Rejected photos can also be copied into rejection folders. Exported copies can retain embedded metadata, including EXIF information; export does not anonymize images or remove location information.",
+          "Confirm your source and destination folders, available storage and results. Keep an independent backup before use. If you choose an iCloud, OneDrive, Dropbox, network or other synchronized location, the operating system or storage provider may transfer those files according to its own settings. Such transfers are outside this app’s control."
+        ]
+      },
+      {
+        "title": "Updates and external connections",
+        "paragraphs": [
+          "After you accept this notice, the app automatically contacts GitHub to check for releases. Choosing to install an update downloads the update from GitHub and its delivery infrastructure. These requests expose ordinary connection information, such as your IP address, to those providers and are subject to their policies. Photo content is not included in update requests. You can analyze and export photos without an internet connection; checking for and downloading updates requires one."
+        ]
+      },
+      {
+        "title": "Your content and permissions",
+        "paragraphs": [
+          "You retain your rights in your photographs. Using this app does not grant the Foundation or contributors ownership of, or permission to publish, your content. Use only images you are authorized to process. You are responsible for applicable copyright, privacy, image rights and event rules, including any permissions required for images of children, and for decisions to share or publish the output."
+        ]
+      },
+      {
+        "title": "Warranty and limitation of liability",
+        "paragraphs": [
+          "To the fullest extent permitted by applicable law, the software is provided as is, without warranties, including accuracy, merchantability, fitness for a particular purpose or non-infringement. Uninterrupted operation, error-free results and recovery of files or selections are not guaranteed.",
+          "To the fullest extent permitted by applicable law, the Foundation, authors, copyright holders and contributors are not liable for claims, loss or damage arising from the software or its use, including incorrect categorization, lost or damaged data, interrupted work or loss of profit. Nothing in this notice excludes liability that cannot lawfully be excluded or limits mandatory rights available to you."
+        ]
+      },
+      {
+        "title": "Open-source license and support",
+        "paragraphs": [
+          "The software is distributed under the MIT License included with the project. Its permissions and conditions remain in effect; this notice does not replace that license or restrict the rights it grants. Third-party components retain their own licenses. Maintenance, compatibility with future systems and a particular support response time are not guaranteed."
+        ]
+      },
+      {
+        "title": "Your acknowledgment",
+        "paragraphs": [
+          "By selecting the checkbox and continuing, you acknowledge that you have read this notice and accept these conditions of use, subject to your mandatory legal rights. This is not permission to upload or publish your photos, and does not waive rights that cannot lawfully be waived.",
+          "The app stores the notice version, acceptance time, language and app version on this device. No account or server-side acceptance record is created. A changed notice or cleared application storage will require acknowledgment again. You can reopen the full notice from Privacy & terms. If you do not accept, choose Decline and close."
+        ]
+      }
+    ],
+    "acknowledgment": "I have read the information above and accept the conditions of use.",
+    "accept": "Accept and continue",
+    "decline": "Decline and close",
+    "close": "Close notice",
+    "localReceipt": "Your acknowledgment is saved only on this device.",
+    "saveError": "We could not save your acknowledgment on this device. Check available storage and try again. The workspace remains closed.",
+    "closeError": "The app could not close. You can quit it from the system menu or return to the notice.",
+    "declinedTitle": "The workspace is closed",
+    "declinedBody": "You have not accepted the conditions of use. No new acknowledgment has been saved.",
+    "browserClose": "You can close this tab.",
+    "readAgain": "Read the notice",
+    "licenseLabel": "Read the MIT License"
+  },
+  "tr": {
+    "title": "İlk seçiminizden önce",
+    "reviewTitle": "Gizlilik ve kullanım koşulları",
+    "intro": "Fotoğraflarınız. Cihazınız. Kararınız.",
+    "description": "Devam etmeden önce FYF Photo Culler’ın çalışma biçimini ve kullanım koşullarını okuyun.",
+    "documentTitle": "Çalışma biçimi ve kullanım koşulları",
+    "versionLabel": "Metin sürümü",
+    "dateLabel": "Yürürlük tarihi",
+    "summary": [
+      {
+        "title": "Fotoğraflar cihazınızda işlenir",
+        "body": "Uygulama, fotoğraflarınızı bize veya bir yapay zekâ hizmetine yüklemez."
+      },
+      {
+        "title": "Dışa aktarım kopya oluşturur",
+        "body": "Sakla, Belki ve Reddet birer kategoridir. Bir fotoğrafı reddetmek kaynak dosyayı silmez."
+      },
+      {
+        "title": "Son seçimi siz yaparsınız",
+        "body": "Otomatik puanlar hatalı olabilir. Sonuçları inceleyin ve bağımsız bir yedek saklayın."
+      }
+    ],
+    "networkNote": "Güncellemeler için bağlantı: onayınızdan sonra GitHub üzerinden yeni sürüm kontrolü yapılır. Fotoğraf analizi internet olmadan çalışır.",
+    "sections": [
+      {
+        "title": "Amaç ve otomatik öneriler",
+        "paragraphs": [
+          "FYF Photo Culler, Fikret Yüksel Vakfı gönüllülerinin geliştirdiği ücretsiz ve açık kaynaklı bir masaüstü fotoğraf eleme aracıdır. Seçtiğiniz klasörlerdeki ve alt klasörlerdeki JPEG/JPG dosyalarını okur; teknik görüntü kalitesini ve görsel benzerliği değerlendirerek incelemeniz için kategoriler önerir. Puanlar ve benzerlik grupları birer tahmindir; fotoğrafın kalitesi, benzersizliği veya amaca uygunluğu konusunda garanti oluşturmaz. Son seçim ve değerlendirme size aittir."
+        ]
+      },
+      {
+        "title": "Yerel işleme ve saklanan bilgiler",
+        "paragraphs": [
+          "Fotoğraf analizi bilgisayarınızda gerçekleştirilir. Bu sürüm, fotoğraflarınızı, görüntü üst verilerini veya seçimlerinizi Vakfa, katkı sağlayanlara ya da bir yapay zekâ hizmetine göndermez; kullanım analitiği veya reklam takip araçları içermez. Yerel işleme hizmeti yalnızca kendi bilgisayarınızda dinleme yapar; internette barındırılan bir fotoğraf hizmeti değildir.",
+          "Uygulama; küçük resimler ve önizlemeler oluşturur, çalışmaya devam edebilmeniz için dosya yolları, analiz sonuçları ve inceleme kararları gibi oturum bilgilerini yerel olarak saklar. Bu dosyalar uygulama kapandıktan sonra kalabilir. Cihazınıza ve yerel depolamaya erişimi koruyun; uygulamayı kapatmak veya kaldırmak, bütün önbellek ve oturum verilerinin silindiği anlamına gelmez."
+        ]
+      },
+      {
+        "title": "Kaynak dosyalar, dışa aktarım ve yedekleme",
+        "paragraphs": [
+          "Normal analiz ve dışa aktarım akışı, kaynak fotoğrafları okur ve kategorilere ayrılan dosyaları dışa aktarımdan önce gösterilen hedefe kopyalar. Kaynak fotoğrafları kasıtlı olarak taşımaz, silmez veya üzerlerine yazmaz. Reddedilen fotoğraflar da ret nedenlerine göre klasörlere kopyalanabilir. Kopyalar EXIF dâhil gömülü üst verileri koruyabilir; dışa aktarım, görüntüleri anonimleştirmez veya konum bilgisini temizlemez.",
+          "Kaynak ve hedef klasörleri, kullanılabilir disk alanını ve sonuçları kontrol edin. Kullanımdan önce bağımsız bir yedek bulundurun. iCloud, OneDrive, Dropbox, ağ sürücüsü veya başka bir eşitlenen konum seçerseniz işletim sistemi ya da depolama sağlayıcısı kendi ayarlarına göre dosyaları aktarabilir. Bu aktarımlar uygulamanın kontrolü dışındadır."
+        ]
+      },
+      {
+        "title": "Güncellemeler ve dış bağlantılar",
+        "paragraphs": [
+          "Bu metni kabul ettikten sonra uygulama, yeni sürümleri kontrol etmek için GitHub’a otomatik olarak bağlanır. Güncellemeyi kurmayı seçtiğinizde güncelleme dosyası GitHub ve dağıtım altyapısından indirilir. Bu istekler IP adresiniz gibi olağan bağlantı bilgilerini ilgili sağlayıcılara iletir ve onların politikalarına tabidir. Fotoğraf içerikleri güncelleme isteklerine eklenmez. Fotoğraf analizi ve dışa aktarım internet olmadan yapılabilir; güncelleme kontrolü ve indirme için internet gerekir."
+        ]
+      },
+      {
+        "title": "İçerikleriniz ve gerekli izinler",
+        "paragraphs": [
+          "Fotoğraflarınız üzerindeki haklarınız sizde kalır. Uygulamayı kullanmanız, Vakfa veya katkı sağlayanlara içerikleriniz üzerinde mülkiyet ya da yayımlama izni vermez. Yalnızca işlemeye yetkili olduğunuz görüntüleri kullanın. Çocukların görüntüleri için gerekli olabilecek izinler dâhil; telif, özel hayat, görüntü hakları, kişisel veriler ve etkinlik kurallarına uyum ile çıktıları paylaşma veya yayımlama kararları sizin sorumluluğunuzdadır."
+        ]
+      },
+      {
+        "title": "Garanti ve sorumluluğun sınırlandırılması",
+        "paragraphs": [
+          "Uygulanacak hukukun izin verdiği azami ölçüde yazılım; doğruluk, ticarete elverişlilik, belirli bir amaca uygunluk veya üçüncü kişi haklarını ihlal etmeme garantileri dâhil herhangi bir garanti verilmeden, olduğu gibi sunulur. Kesintisiz çalışma, hatasız sonuç veya dosya ve seçimlerin geri kazanılması taahhüt edilmez.",
+          "Uygulanacak hukukun izin verdiği azami ölçüde Vakıf, yazılımın yazarları, telif hakkı sahipleri ve katkı sağlayanlar; yazılımdan veya kullanımından doğan talepler, kayıp ya da zararlardan; hatalı sınıflandırma, veri kaybı veya bozulması, iş kesintisi ve kâr kaybı dâhil sorumlu tutulamaz. Bu metin, hukuken kaldırılamayan sorumlulukları ortadan kaldırmaz ve emredici hukuk kurallarından doğan haklarınızı sınırlandırmaz."
+        ]
+      },
+      {
+        "title": "Açık kaynak lisansı ve destek",
+        "paragraphs": [
+          "Yazılım, projeyle birlikte sunulan MIT Lisansı kapsamında dağıtılır. Lisansın izin ve koşulları geçerliliğini korur; bu bilgilendirme lisansın yerine geçmez veya tanıdığı hakları kısıtlamaz. Üçüncü taraf bileşenlerin kendi lisansları geçerlidir. Sürekli bakım, gelecekteki sistemlerle uyumluluk veya belirli bir sürede destek yanıtı taahhüt edilmez."
+        ]
+      },
+      {
+        "title": "Okuma ve kabul beyanınız",
+        "paragraphs": [
+          "Onay kutusunu işaretleyip devam ederek bu metni okuduğunuzu ve vazgeçilemez yasal haklarınız saklı kalmak üzere kullanım koşullarını kabul ettiğinizi beyan edersiniz. Bu beyan, fotoğraflarınızı yükleme veya yayımlama izni değildir; hukuken vazgeçilemeyen haklardan feragat anlamına gelmez.",
+          "Uygulama; metin sürümünü, kabul zamanını, seçilen dili ve uygulama sürümünü bu cihazda saklar. Hesap açılmaz ve sunucuda kabul kaydı oluşturulmaz. Metin değişirse veya uygulama depolaması temizlenirse yeniden onay istenir. Metnin tamamını Gizlilik ve kullanım koşulları bölümünden tekrar açabilirsiniz. Kabul etmiyorsanız Kabul etme ve kapat seçeneğini kullanın."
+        ]
+      }
+    ],
+    "acknowledgment": "Okudum; yukarıdaki bilgilendirmeyi ve kullanım koşullarını kabul ediyorum.",
+    "accept": "Kabul et ve devam et",
+    "decline": "Kabul etme ve kapat",
+    "close": "Metni kapat",
+    "localReceipt": "Kabul kaydınız yalnızca bu cihazda saklanır.",
+    "saveError": "Kabul kaydınız bu cihaza kaydedilemedi. Kullanılabilir depolama alanını kontrol edip tekrar deneyin. Çalışma alanı kapalı kalır.",
+    "closeError": "Uygulama kapatılamadı. Sistem menüsünden çıkabilir veya metne geri dönebilirsiniz.",
+    "declinedTitle": "Çalışma alanı kapalı",
+    "declinedBody": "Kullanım koşullarını kabul etmediniz. Yeni bir kabul kaydı oluşturulmadı.",
+    "browserClose": "Bu sekmeyi kapatabilirsiniz.",
+    "readAgain": "Metni oku",
+    "licenseLabel": "MIT Lisansını oku"
+  }
+}

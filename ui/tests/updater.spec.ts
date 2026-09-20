@@ -1,4 +1,9 @@
+import { seedNoticeAcceptance } from "./helpers/notice";
 import { test, expect, type Page } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await seedNoticeAcceptance(page);
+});
 
 async function updaterSession(
   page: Page,
