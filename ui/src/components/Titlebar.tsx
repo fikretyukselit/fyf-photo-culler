@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Sun, Moon, Minus, Square, X } from "lucide-react";
+import { Sun, Moon, Minus, Square, X, BookOpen } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { cn } from "@/lib/utils";
 import { useSessionStore } from "@/lib/stores";
 import { useLocale } from "@/lib/i18n";
+import notice from "@/content/use-notice.json";
 import fyfIcon from "@/assets/orta.png";
 
 function useIsMac() {
@@ -102,7 +103,7 @@ function MacTrafficLights() {
   );
 }
 
-export function Titlebar() {
+export function Titlebar({ onOpenNotice }: { onOpenNotice: () => void }) {
   const { theme, toggleTheme } = useSessionStore();
   const { locale, setLocale, t } = useLocale();
   const inTauri = "__TAURI_INTERNALS__" in window;
@@ -130,6 +131,14 @@ export function Titlebar() {
 
       {/* Right: Controls */}
       <div className="flex shrink-0 items-center gap-1 pr-3">
+        <button
+          onClick={onOpenNotice}
+          aria-label={notice[locale].reviewTitle}
+          title={notice[locale].reviewTitle}
+          className="rounded-md p-1.5 text-foreground/50 hover:bg-foreground/10 hover:text-foreground/80"
+        >
+          <BookOpen className="size-4" />
+        </button>
         <button
           onClick={() => setLocale(locale === "en" ? "tr" : "en")}
           aria-label={t("language.toggle")}

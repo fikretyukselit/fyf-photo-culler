@@ -1,4 +1,9 @@
+import { seedNoticeAcceptance } from "./helpers/notice";
 import { test, expect, type Page } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await seedNoticeAcceptance(page);
+});
 
 async function mockSession(
   page: Page,
@@ -155,7 +160,7 @@ async function resume(page: Page) {
   ).toBeVisible();
 }
 
-test("first launch is usable; folder import explains skipped files and reaches review", async ({
+test("accepted workspace is usable; folder import explains skipped files and reaches review", async ({
   page,
 }) => {
   await mockSession(page, { resumable: false, unsupported: 2 });

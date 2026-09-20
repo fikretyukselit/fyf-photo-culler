@@ -14,7 +14,7 @@ type Phase =
   | "failed"
   | "restart-failed";
 
-export function UpdatePopup() {
+export function UpdatePopup({ blocked = false }: { blocked?: boolean }) {
   const { t } = useLocale();
   const [update, setUpdate] = useState<Update | null>(null);
   const [phase, setPhase] = useState<Phase>("available");
@@ -23,7 +23,7 @@ export function UpdatePopup() {
   const [dismissed, setDismissed] = useState(false);
   const busy = useRef(false);
   const installed = useRef(false);
-  const dialogRef = useDialogFocus(!!update && !dismissed);
+  const dialogRef = useDialogFocus(!!update && !dismissed && !blocked);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -83,7 +83,7 @@ export function UpdatePopup() {
     }
   }
 
-  if (!update || dismissed) return null;
+  if (!update || dismissed || blocked) return null;
   const working = ["downloading", "installing", "restarting"].includes(phase);
   const done = installed.current;
 
