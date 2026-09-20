@@ -1,15 +1,16 @@
 <p align="center">
-  <img src="ui/src/assets/orta.png" alt="FYF Logo" width="100" />
+  <img src="ui/src/assets/orta.png" alt="Fikret Yuksel Foundation logo" width="100" />
 </p>
 
 <h1 align="center">FYF Photo Culler</h1>
 
 <p align="center">
-  <strong>A focused photo culling workspace for FRC competition photography</strong>
+  <strong>Free, open-source photo culling for FIRST Robotics Competition (FRC) and FIRST Tech Challenge (FTC) event photography</strong>
 </p>
 
 <p align="center">
   <a href="#download">Download</a> &middot;
+  <a href="#who-is-this-for">Who is this for</a> &middot;
   <a href="#features">Features</a> &middot;
   <a href="#see-the-workflow">Demo</a> &middot;
   <a href="#getting-started">Getting Started</a> &middot;
@@ -28,10 +29,24 @@
 
 ---
 
-An open-source desktop application built by volunteers of **[Fikret Yuksel Foundation](https://fikretyukselfoundation.org)**. Designed to help FRC (FIRST Robotics Competition) media teams quickly sort through hundreds of competition photos — keeping the best shots, detecting duplicates, and organizing everything automatically.
+A free, open-source desktop application built by volunteers of **[Fikret Yuksel Foundation](https://fikretyukselfoundation.org)**. It helps FIRST Robotics Competition (FRC) media teams and event photography volunteers sort through hundreds or thousands of competition photos in minutes: it scores sharpness and exposure, detects duplicates and burst sequences, suggests Keep / Maybe / Reject, and exports organized folders. No account, no upload, no subscription. Runs on macOS, Windows and Linux.
 
 > **Load your SD cards → review suggested picks → cull with <kbd>K</kbd> <kbd>M</kbd> <kbd>R</kbd> → export, organized.**
 > Local computer vision helps you sort. You make the final selection.
+
+## Who is this for
+
+- **FRC team media students** who come home from a district event or regional with several SD cards and a deadline for the team's social posts.
+- **FIRST event photography volunteers** covering FRC, FTC (FIRST Tech Challenge) or FLL (FIRST LEGO League) events for the organizers.
+- **Mentors and parents** who shoot bursts of match action and want a fast first pass before opening an editor.
+- **Anyone culling sports or event photos** who wants a free, offline alternative to paid culling tools. Nothing here is FRC-only; the defaults are tuned for robots in motion under arena lighting.
+
+<details>
+<summary><strong>Türkçe özet</strong></summary>
+
+FYF Photo Culler, FIRST Robotics Competition (FRC) ve FTC etkinliklerinde çekilen yüzlerce fotoğrafı hızla ayıklamak için geliştirilmiş ücretsiz ve açık kaynaklı bir masaüstü uygulamasıdır. Netlik ve pozlama puanlaması, tekrar eden ve seri çekim kareleri tespiti, Sakla / Belki / Çıkar önerileri ve düzenli klasörlere dışa aktarma sunar. Fotoğraflar hiçbir sunucuya yüklenmez; tüm analiz bilgisayarınızda çalışır. Arayüz Türkçe ve İngilizce'dir. macOS, Windows ve Linux için [indirme bağlantıları](#download) aşağıdadır. Sorular ve öneriler için [Discussions](https://github.com/fikretyukselit/fyf-photo-culler/discussions) sayfasını kullanabilirsiniz.
+
+</details>
 
 ## Download
 
@@ -177,9 +192,10 @@ The backend will print `BACKEND_PORT=9470` — the frontend connects to it autom
 ### Building for Production
 
 ```bash
-# Build Python sidecar binary (uses fyf-backend.spec)
+# Build Python sidecar binary (same command as the release workflow)
 pip install pyinstaller
-pyinstaller fyf-backend.spec --noconfirm
+pyinstaller --onefile --name fyf-backend backend/server.py \
+  --hidden-import culling --add-data "culling:culling" --distpath dist/
 
 # Copy to Tauri binaries directory
 cp dist/fyf-backend ui/src-tauri/binaries/fyf-backend-$(rustc -vV | grep host | awk '{print $2}')
@@ -249,20 +265,14 @@ fyf-photo-culler/
 
 ## Contributing
 
-This is an open-source project by FYF volunteers. Contributions are welcome!
-
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+This is an open-source project by FYF volunteers, and contributions from other FIRST teams are welcome: bug reports from real events, sample photo sets that fool the scoring, translations, documentation and code. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests and the pull request flow. Questions and ideas go to [Discussions](https://github.com/fikretyukselit/fyf-photo-culler/discussions); confirmed bugs go to [Issues](https://github.com/fikretyukselit/fyf-photo-culler/issues).
 
 ## About Fikret Yuksel Foundation
 
 [Fikret Yuksel Foundation](https://fikretyukselfoundation.org) is a non-profit organization dedicated to inspiring and educating young students, enabling them to discover and develop their potential while fostering Turkey's growth. This tool was built to support our FRC robotics teams' media operations.
 
 <p align="center">
-  <img src="ui/src/assets/orta.png" alt="FYF" width="48" />
+  <img src="ui/src/assets/orta.png" alt="Fikret Yuksel Foundation logo" width="48" />
   <br />
   <sub>Made with care by FYF volunteers</sub>
 </p>
